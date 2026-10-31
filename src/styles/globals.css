@@ -1,0 +1,35 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    font-family: var(--font-sans);
+  }
+
+  /* Cada contexto de tema (raiz ou seção com data-theme) pinta o próprio fundo e texto.
+   * Usa as variáveis cruas para respeitar o tema mais próximo. */
+  body,
+  [data-theme] {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+
+  /* Foco sempre visível na navegação por teclado (Brain §29). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Respeita a preferência de movimento reduzido em todo o site (Brain §29 e §33). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
