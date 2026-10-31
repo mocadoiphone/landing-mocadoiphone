@@ -63,6 +63,7 @@ tests/integration/       testes contra a API real do Supabase local
 | 11 | `20261030211000_media_rules.sql` | Contagem de referências, mídia pública, bloqueio de exclusão de mídia em uso |
 | 12 | `20261030211100_rls.sql` | Grants explícitos e as 38 políticas RLS |
 | 13 | `20261030211200_storage.sql` | Bucket `media` + 4 políticas de Storage |
+| 14 | `20261031104058_explicit_privileges.sql` | Privilégios independentes do ambiente (MDI-D019): `service_role` sem acesso às tabelas, sequence da auditoria fechada, privilégios padrão de `public` zerados |
 
 Cada migration traz no cabeçalho a estratégia de reversão (agente de modelagem).
 
@@ -126,6 +127,9 @@ site_settings (key: whatsapp|store|footer|seo|media) · audit_logs (append-only)
 - **Staff:** qualquer perfil ativo lê também rascunhos e excluídos, para montar a Home e restaurar registros.
 - **Admin inativo:** não administra nada.
 - **Grants:** tudo é revogado de `anon` e `authenticated` e concedido explicitamente.
+  - `service_role` não tem acesso às tabelas.
+  - Objetos novos em `public` nascem sem privilégios padrão para os papéis da API (MDI-D019).
+  - A matriz é fixada pelo teste `07_privileges`.
 
 ## Storage
 
@@ -194,13 +198,13 @@ npm run test:integration  # API real do Supabase local (exige db:start + db:rese
 
 | Verificação | Resultado |
 |---|---|
-| Reset completo do zero (13 migrations + seed) | ✅ |
+| Reset completo do zero (14 migrations + seed) | ✅ |
 | `supabase db lint` | ✅ Nenhum erro de schema |
-| pgTAP (`npm run db:test`) | ✅ 169 testes em 6 suítes: constraints (32), acesso público (44), papéis (40), regras do catálogo (22), auditoria (17), Storage (14) |
+| pgTAP (`npm run db:test`) | ✅ 209 testes em 7 suítes: constraints (32), acesso público (44), papéis (40), regras do catálogo (22), auditoria (17), Storage (14), privilégios (40) |
 | Teste de mutação | ✅ Leitura pública de produtos liberada e `DELETE` concedido de propósito → 6 testes falharam nos pontos certos; banco recriado depois |
 | Integração com a API real (`npm run test:integration`) | ✅ 9 testes: anônimo, cadastro bloqueado (`signup_disabled`), senha errada, OWNER, usuário sem perfil, auditoria com autor |
 | Fluxo de UI por HTTP com cookie de sessão real | ✅ Sem sessão → 307 para o login · OWNER → painel com e-mail e "Proprietário (OWNER)" · sem perfil → "Acesso não autorizado" · OWNER no login → 307 para `/admin` · cookie forjado → 307 para o login |
-| `npm run test` (unit + componentes) | ✅ 20 testes (env, trava de chave secreta, login, formulário) |
+| `npm run test` (unit + componentes) | ✅ 23 testes (env, trava de chave pública por lista de permitidos, login, formulário) |
 | `npm run build` | ✅ (com as variáveis do Supabase local) |
 | `npm run typecheck` · `npm run lint` · `npm run format:check` | ✅ |
 | Segredos no bundle do cliente | ✅ Nenhuma chave; só aparecem os literais `sb_secret_`/`service_role` das funções que detectam chaves |
@@ -224,20 +228,143 @@ npm run test:integration  # API real do Supabase local (exige db:start + db:rese
   - padrões seguros;
   - `collections` e `product_sections` adiados;
   - bucket único mantido.
+- **MDI-D019:** privilégios explícitos e independentes do ambiente (`service_role` sem acesso às tabelas; objetos novos em `public` sem privilégios padrão para os papéis da API).
+
+## Sincronização com ambiente remoto
+
+**Status em 2026-10-31: CONCLUÍDA.**
+- Schema aplicado e validado: o remoto está idêntico ao local.
+- OWNER criado e auditado.
+- Cadastro público desativado.
+- Login, sessão, `/admin` e Sair validados no remoto.
+- Ficam recomendações de segurança para decisão do responsável (Pendências 1 a 4).
+
+| Item | Situação |
+|---|---|
+| Commit da Etapa 02 | ✅ `5959ccd` (sem `.env`, sem segredos, sem `assets-21/`) |
+| Chave pública no `.env.local` | ✅ JWT `anon` de 3 segmentos |
+| Token do CLI (`.env.supabase.local`) | ✅ Substituído por token com acesso total; validado sem exibição (projeto, pooler, Auth, migrations e Storage: 200) |
+| `supabase link` | ✅ `landing-mocadoiphone`, ref `dels…psvl`, `sa-east-1`, Postgres 17.11 (igual ao local, 17), `ACTIVE_HEALTHY` |
+| Conferência antes do push | ✅ 13 migrations pendentes, nenhuma aplicada. O banco estava vazio: 0 tabelas, 0 tipos, sem schema `app`, 0 buckets, 0 objetos, 0 usuários, sem histórico de migrations |
+| `supabase db push` | ✅ 2026-10-31: 13 migrations aplicadas, sem seed. Depois, a migration 14 corrigiu a divergência de privilégios (abaixo) |
+| Validação do schema remoto | ✅ `migration list` 14/14 · `db diff --linked` (`public`, `app`): "No schema changes found" · comparação do catálogo local × remoto: idêntico, exceto a função da plataforma (abaixo) |
+| RLS e Storage (anônimo, HTTP) | ✅ Detalhes abaixo |
+| Primeiro OWNER | ✅ 2026-10-31. O responsável criou o usuário no Dashboard (1 usuário, confirmado). O agente executou `app.bootstrap_first_owner` pelo CLI com o e-mail por subconsulta, sem digitá-lo nem exibi-lo. Resultado: 1 perfil `OWNER` ativo, vinculado ao usuário criado, com o nome de exibição padrão (parte do e-mail antes do @) |
+| Auditoria do bootstrap | ✅ 1 registro: `admin_profiles` · `INSERT` · `source=bootstrap` · valor novo com `role=OWNER`. O autor fica nulo porque o bootstrap roda como `postgres`, sem sessão. A origem da auditoria foi restaurada depois |
+| Cadastro público desativado | ✅ Management API: só `disable_signup=true` (status 200). O endpoint público do Auth mostra `disable_signup: true`, login por e-mail ativo, sem login anônimo nem por telefone |
+| Rotas sem sessão (build de produção, `.env.local` → remoto) | ✅ `/admin` → 307 para `/admin/login` · cookie forjado → 307 · `/admin/login` 200 com `noindex` |
+| Login, sessão e `/admin` no remoto | ✅ O responsável entrou no navegador. O painel exibiu "Painel administrativo", o usuário autenticado e "Proprietário (OWNER)". O perfil é lido com a sessão do próprio usuário, então a RLS autenticada foi validada no remoto. O banco registra a sessão criada no login, sem dados pessoais (só contagens e horários) |
+| Sair no remoto | ✅ A sessão do primeiro login (13:19, horário de Brasília) foi removida de `auth.sessions`, o que só acontece com o encerramento da sessão. O login seguinte (13:51) criou uma sessão nova |
+| Bloqueio de usuário sem perfil | ✅ Local (HTTP e integração). No remoto, o primeiro login (13:19) aconteceu antes do bootstrap (13:23), quando a conta ainda não tinha perfil. A tela exibida nesse momento não foi confirmada pelo responsável |
+| Botão "Sair" | ✅ Validado ponta a ponta no ambiente local (abaixo) e no remoto |
+| Validação final | ✅ `npm run check` (lint, typecheck, 23 testes, formatação) · `npm run build` com o `.env.local` remoto · nenhum token ou chave secreta no `.next` · pgTAP 209/209 e integração 9/9 só no local. Nenhum teste destrutivo rodou no remoto |
+
+### Validação do schema remoto
+
+A validação não se apoiou só no sucesso do comando. Uma consulta somente leitura gerou uma "impressão digital" do catálogo, executada no local e no remoto e comparada linha a linha (486 itens). Ela cobre:
+- schemas e seus privilégios;
+- tabelas, RLS e owner;
+- colunas, tipos, defaults e colunas geradas;
+- enums;
+- constraints;
+- índices;
+- policies, inclusive as de `storage.objects`;
+- funções (assinatura, `SECURITY DEFINER`, `search_path`, owner e hash do corpo) e `EXECUTE` por papel;
+- triggers;
+- grants por tabela e por coluna;
+- privilégios padrão;
+- o bucket `media`.
+
+Resultado: 12 tabelas com RLS, 42 policies (4 no Storage), 36 triggers, 39 índices, 115 constraints, 21 funções em `app`, 7 enums e o bucket `media` (público, 50 MB, jpeg/png/webp/avif/mp4). Tudo é igual ao local.
+
+**Única diferença restante (da plataforma, aceita):** a função `public.rls_auto_enable()` e o event trigger `ensure_rls`.
+- Eles vêm do recurso do Supabase que ativa a RLS automaticamente em tabelas novas de `public`.
+- Não vêm das migrations e não existem no local.
+- São compatíveis com o projeto, porque todas as tabelas já ativam RLS explicitamente.
+- Não foram alterados.
+
+**Aviso não bloqueante do CLI:** depois do primeiro push, o CLI 2.109 emitiu "failed to cache migrations catalog" (`pg-delta`, certificado ausente em `supabase/.temp`). É um cache local do CLI, emitido depois da última migration, e não afeta o banco.
+
+### Divergência encontrada e corrigida (MDI-D019)
+
+1. **Parada:** a primeira comparação mostrou que, no remoto, o `service_role` tinha `SELECT/INSERT/UPDATE/DELETE` nas 12 tabelas. A sequence `audit_logs_id_seq` também tinha `SELECT/USAGE` a mais para `anon`, `authenticated` e `service_role`.
+2. **Causa:** os privilégios padrão do schema `public` são diferentes nos dois ambientes.
+   - O remoto usa o padrão clássico: `ALL` em tabelas novas para os três papéis.
+   - O CLI local usa o padrão novo, sem DML.
+   - As migrations já zeravam `anon` e `authenticated`, mas não o `service_role` nem a sequence.
+3. **Registro:** decisão MDI-D019.
+4. **Migration:** `20261031104058_explicit_privileges.sql`. Ela revoga o `service_role` das tabelas, fecha a sequence e zera os privilégios padrão de `public` para os papéis da API.
+5. **Teste local:**
+   - suíte nova `07_privileges` (40 testes), que antes da migration falhou nos 16 pontos esperados;
+   - `db:reset` + `db:test` com 209/209;
+   - `db:lint` limpo;
+   - integração 9/9;
+   - tipos sem mudança.
+6. **Reaplicação:** `db push` só da migration 14. A comparação seguinte saiu idêntica.
+
+Nada foi alterado pelo Dashboard.
+
+### RLS e Storage no remoto (sondagens HTTP anônimas com a chave pública)
+
+Nenhum dado foi gravado. As tentativas de escrita usaram conteúdo que também violaria constraints.
+
+| Sondagem | Resultado |
+|---|---|
+| Leitura das 10 tabelas públicas | ✅ 200, listas vazias (banco sem conteúdo) |
+| `admin_profiles`, `audit_logs` | ✅ 401 / `42501` (sem privilégio) |
+| `POST` em `categories`, `products`, `site_settings`, `admin_profiles`; `PATCH` em `categories`; `DELETE` em `products` | ✅ 401 / `42501` |
+| RPC `bootstrap_first_owner`, `has_role` | ✅ 404: o schema `app` não é exposto pela API |
+| Metadados do bucket `media` | ✅ Ocultos para o anônimo |
+| Listagem de objetos | ✅ Vazia |
+| Upload anônimo (pasta proibida e `products/`) | ✅ 403, "new row violates row-level security policy" |
+| Auth | ✅ Login por e-mail ativo. Cadastro desligado depois do OWNER |
+| Repetição após o OWNER | ✅ `admin_profiles` e `audit_logs` continuam 42501. `PATCH`/`POST` anônimo em `admin_profiles` dá 42501 |
+
+### Segundo incidente com a chave
+
+- Depois da troca, `NEXT_PUBLIC_SUPABASE_ANON_KEY` passou a ter **5 segmentos**:
+  - a chave `anon` completa;
+  - seguida de `.payload.assinatura` da `service_role` antiga.
+- **Por que é grave:** o cabeçalho de um JWT é padrão, então a chave secreta pode ser reconstruída a partir desse valor. Por isso ele também é inválido, e o remoto responde 401.
+- **Resposta:** a trava de `env.ts` virou lista de permitidos e passou a examinar todos os segmentos. Agora ela bloqueia esse caso, com teste dedicado.
+- **Exposição:** nenhuma. O valor está só no arquivo local, ignorado pelo git, e não aparece em builds nem no commit.
+
+### Botão "Sair" validado localmente (HTTP, Server Action real)
+
+1. `/admin` autenticado como OWNER do seed → 200, painel exibido.
+2. A página contém o formulário Sair com a Server Action.
+3. POST do formulário → 303 para `/admin/login` e o cookie de sessão é apagado.
+4. `/admin` em seguida → 307 para `/admin/login`.
+5. Reusar o refresh token antigo falha com `refresh_token_not_found`: a sessão é revogada no servidor.
+
+O mesmo teste será repetido no remoto pelo responsável, no navegador.
+
+### Próximos passos
+
+Todos concluídos: usuário do OWNER, bootstrap, auditoria, cadastro desativado, login e Sair no remoto.
 
 ## Pendências
 
-1. **Bloqueante para usar o projeto remoto:** trocar `NEXT_PUBLIC_SUPABASE_ANON_KEY` no `.env.local` pela chave anon/publishable. Até lá, o app recusa iniciar com esse arquivo.
-2. **Aplicar as migrations no projeto remoto** (`supabase link` + `supabase db push`). Não foi feito porque altera o banco remoto e depende da sua confirmação. Depois: criar o primeiro OWNER (passos acima) e ajustar o Auth no Dashboard (cadastro desativado, política de senha).
-3. **Validar o botão "Sair" no navegador:** a extensão do Chrome não estava conectada. O botão está no HTML e a action segue o padrão oficial, mas não foi acionado ponta a ponta.
-4. **`collections`, `collection_products`, `product_sections`:** entram nas Etapas 04/05 (MDI-D018).
-5. **Supabase CLI:** a versão instalada é a 2.109.1; há a 2.122.0 disponível. Atualizar quando conveniente.
-6. **`assets-21/macbook.txt`:** fora do escopo, intocado e não versionado, conforme instrução.
+1. **E-mail do OWNER (segurança, recomendado antes da Etapa 04):** o OWNER usa um endereço genérico, de um domínio que não pertence à Moça do iPhone.
+   - **Risco:** o Auth permite recuperação de senha e magic link para usuários existentes. Quem controlar a caixa desse domínio poderia receber o link e entrar como OWNER. O endereço também é fácil de adivinhar.
+   - **Mitigação atual:** sem SMTP próprio, o serviço de e-mail padrão do Supabase só entrega para membros da equipe da organização.
+   - **Quando o risco aparece:** assim que um SMTP próprio for configurado, o que será necessário para convites e recuperação de senha.
+   - **Ação:** trocar para uma caixa real do responsável.
+2. **Política de senha do Auth remoto:** está no padrão do Supabase (mínimo de 6, sem exigência de caracteres). No local é mínimo de 10, com maiúsculas, minúsculas e dígitos. Ajustar exige mudar a configuração do Auth; aguardando a decisão do responsável. Vale para senhas novas.
+3. **Segurança:** o `.env.local` ainda contém um `SUPABASE_ACCESS_TOKEN`.
+   - É **diferente** do token atual e **continua válido**: é o token limitado anterior, que não foi revogado.
+   - Revogue-o no Dashboard (*Account → Access Tokens*) e remova a linha do `.env.local`. O Next carrega esse arquivo no servidor.
+4. **Segurança:** o token de acesso total em `.env.supabase.local` dá controle sobre a conta Supabase. Revogue-o, ou deixe expirar, ao fechar a Etapa 02, e gere outro só quando houver nova migration.
+5. **`collections`, `collection_products`, `product_sections`:** entram nas Etapas 04/05 (MDI-D018).
+6. **Supabase CLI:** a versão instalada é a 2.109.1; há a 2.122.0 disponível. Atualizar quando conveniente.
+7. **`assets-21/`** (`macbook.txt`, `modelo-tela.jpg`): fora do escopo, intocados e não versionados, conforme instrução.
 
 ## Riscos
 
-- **Chave `service_role` no `.env.local`:** se for para um deploy com o prefixo `NEXT_PUBLIC_`, o banco fica exposto. Mitigado pela trava em `env.ts`, que impede o build. Corrigir o arquivo é necessário (Pendência 1).
-- **Configurações do Auth remoto ficam fora das migrations:** se o cadastro público não for desativado no Dashboard, qualquer pessoa cria uma conta. Ela não administra nada (sem perfil, RLS), mas é ruído e superfície desnecessária.
+- **Chave privilegiada em variável pública:** o `.env.local` já foi corrigido (JWT `anon` íntegro). A trava permanente em `env.ts` (lista de permitidos) continua impedindo `dev` e `build` se o erro se repetir. Além disso, desde a MDI-D019 a `service_role` não tem acesso às tabelas do projeto.
+- **Configurações do Auth remoto ficam fora das migrations:** o `supabase/config.toml` vale só para o local. No remoto, o cadastro foi desativado pela Management API em 2026-10-31.
+  - Não usar `supabase config push`: ele enviaria também o `site_url` local.
+  - Qualquer mudança futura no Auth remoto deve ser feita campo a campo e registrada aqui.
 - **Login com limite só do Supabase:** não há rate limiting próprio nem CAPTCHA. Avaliar na Etapa 09.
 - **Mídia não publicada acessível por URL exata** (bucket público com caminhos UUID). Aceito na MDI-D018; reavaliar se surgir conteúdo sigiloso (ex.: lançamento sob embargo).
-- **Ambiente local × remoto:** o Postgres local é a versão 17. Confirmar a versão do projeto remoto antes do `db push`.
+- **Ambiente local × remoto:** os dois usam Postgres 17. Os privilégios padrão diferiam e foram igualados pela MDI-D019. A função da plataforma `rls_auto_enable` existe só no remoto. Depois de cada `db push`, repetir a comparação do catálogo (`docs/CONVENCOES.md`).

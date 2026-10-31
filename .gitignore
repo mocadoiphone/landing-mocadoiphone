@@ -33,6 +33,7 @@ yarn-error.log*
 # env files — apenas o modelo .env.example é versionado
 .env*
 !.env.example
+.env.supabase.local
 
 # vercel
 .vercel

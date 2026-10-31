@@ -47,7 +47,7 @@ Nunca escreva preço, telefone, número de WhatsApp ou nome de produto direto no
 - Toda regra de negócio em `src/lib/` precisa de teste unitário.
 - Componentes `async` (Server Components com dados) não são testados no Vitest: serão cobertos por E2E na Etapa 09.
 
-## Banco de dados (MDI-D008, D010, D018)
+## Banco de dados (MDI-D008, D010, D018, D019)
 
 - Toda mudança de schema é uma migration nova em `supabase/migrations/`. Nunca altere o banco remoto pelo Dashboard. Migration já aplicada no remoto não é editada: corrige-se com outra.
 - **Checklist para cada tabela nova:**
@@ -55,8 +55,9 @@ Nunca escreva preço, telefone, número de WhatsApp ou nome de produto direto no
   2. colunas `created_at`, `updated_at`, `created_by`, `updated_by` + trigger `app.set_row_metadata`;
   3. se o comportamento for soft delete: `deleted_at`, `deleted_by`, trigger `app.set_soft_delete_metadata` e **sem** grant de `DELETE`;
   4. trigger `app.audit_row_change('<coluna da PK>')`;
-  5. grants explícitos e políticas RLS por papel na migration de RLS (ou na própria migration, a partir da Etapa 03);
-  6. testes pgTAP cobrindo leitura pública, escrita por papel e constraints.
+  5. grants explícitos e políticas RLS por papel na migration de RLS (ou na própria migration, a partir da Etapa 03). Objetos novos em `public` nascem sem privilégios para `anon`, `authenticated` e `service_role` nos dois ambientes (MDI-D019): conceda só o necessário, inclusive em sequences;
+  6. testes pgTAP cobrindo leitura pública, escrita por papel e constraints, e a linha da tabela em `07_privileges.test.sql`.
+- Depois de cada `db push`, compare o catálogo do remoto com o do local (tabelas, colunas, constraints, índices, policies, funções, triggers, grants, Storage). O sucesso do comando não basta.
 - Funções internas ficam no schema `app` (não exposto pela API), com `security definer` e `set search_path = ''` quando leem tabelas protegidas. Elas nascem sem `EXECUTE` para `PUBLIC`: conceda só o necessário.
 - Unicidade de slug sempre parcial (`where deleted_at is null`).
 - Dinheiro em centavos (`integer`). Preço e disponibilidade vivem só na variante.

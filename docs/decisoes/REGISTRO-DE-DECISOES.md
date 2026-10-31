@@ -383,3 +383,28 @@
 **Impacto:** Novas tabelas devem seguir o mesmo padrão: RLS ativa na criação, grants explícitos, triggers de metadados e auditoria, e testes pgTAP. Esse padrão está em `docs/CONVENCOES.md`.
 
 **Arquivos afetados:** `supabase/migrations/*`, `supabase/tests/*`, `docs/CONVENCOES.md`.
+
+---
+
+## MDI-D019
+
+**Data:** 2026-10-31
+
+**Decisão:** A matriz de privilégios do banco é totalmente explícita e não depende dos privilégios padrão do ambiente.
+- `service_role` não tem nenhum privilégio nas tabelas do projeto. A aplicação não usa essa chave (MDI-D017). Se uma etapa futura precisar dela (por exemplo, a importação da Etapa 08), recebe o mínimo em migration própria.
+- A sequence `audit_logs_id_seq` não tem privilégios para `anon`, `authenticated` nem `service_role`. A auditoria grava pelo trigger `SECURITY DEFINER`, que pertence ao `postgres`.
+- Objetos futuros criados pelo `postgres` em `public` (tabelas, sequences e funções) nascem sem privilégios para `anon`, `authenticated` e `service_role`. Cada migration concede explicitamente o que for preciso.
+- O teste pgTAP `07_privileges` fixa a matriz de grants por papel e tabela.
+
+**Motivo:** Depois do primeiro `db push`, a comparação do catálogo local com o remoto mostrou que os padrões dos ambientes são diferentes.
+- **Remoto (padrão clássico do Supabase):** concede `ALL` em tabelas novas a `anon`, `authenticated` e `service_role`, `SELECT/UPDATE/USAGE` em sequences e `EXECUTE` em funções.
+- **Local (CLI 2.109):** não concede DML.
+
+As migrations já zeravam `anon` e `authenticated`, mas `service_role` e a sequence ficavam com o que o ambiente desse. Pela regra do projeto, a divergência é corrigida por migration, nunca pelo Dashboard.
+
+**Impacto:**
+- Local e remoto ficam idênticos.
+- A chave `service_role` fica sem acesso aos dados do catálogo, então um vazamento dela não expõe nem altera essas tabelas. Ela continua com acesso administrativo ao Auth e ao Storage, que é da plataforma.
+- Tabelas criadas pelo Dashboard não ficam expostas pela API automaticamente. Pela regra do projeto, o Dashboard não altera o schema de qualquer forma.
+
+**Arquivos afetados:** `supabase/migrations/20261031104058_explicit_privileges.sql`, `supabase/tests/07_privileges.test.sql`, `docs/CONVENCOES.md`.
