@@ -21,6 +21,9 @@
 | MDI-D013 | Design tokens provisórios e temas por seção | Aprovada (Etapa 01) |
 | MDI-D014 | Ferramentas de qualidade, testes e convenções | Aprovada (Etapa 01) |
 | MDI-D015 | Variáveis de ambiente tipadas e opcionais até a Etapa 02 | Aprovada (Etapa 01) |
+| MDI-D016 | Configurações públicas definidas por chave, na migration | Aprovada (Etapa 02) |
+| MDI-D017 | Fluxo de autenticação administrativa | Aprovada (Etapa 02) |
+| MDI-D018 | Ajustes ao modelo de dados da Etapa 00 na implementação | Aprovada (Etapa 02) |
 
 ---
 
@@ -305,3 +308,78 @@
 - **`NEXT_PUBLIC_SITE_URL`:** só será adicionada quando houver uso, na Etapa 07.
 
 **Arquivos afetados:** `src/config/env.ts`, `src/config/env.test.ts`, `next.config.ts`, `.env.example`, `.gitignore`.
+
+---
+
+## MDI-D016
+
+**Data:** 2026-10-30
+
+**Decisão:**
+- A visibilidade de cada chave de `site_settings` é definida **na migration**, por uma coluna gerada (`is_public`) que o painel não consegue alterar.
+- O banco só aceita as chaves `whatsapp`, `store`, `footer`, `seo` e `media`.
+- São públicas `whatsapp`, `store`, `footer` e `seo`. É privada `media` (regras internas de upload).
+- O público lê só as chaves públicas.
+- Tornar uma chave pública, ou criar uma nova, exige migration.
+- Segredos nunca são guardados em `site_settings`.
+
+**Motivo:** O responsável proibiu a leitura pública indiscriminada de `site_settings` e pediu uma estratégia explícita. A auditoria da Etapa 00 previa "leitura de todas as chaves". Uma flag editável no painel permitiria expor por engano uma configuração interna.
+
+**Impacto:** As páginas públicas leem as configurações de que precisam com a chave pública, e configurações internas não vazam. A mudança de visibilidade passa por revisão de código.
+
+**Arquivos afetados:** `supabase/migrations/20261030210800_contacts_and_settings.sql`, `supabase/migrations/20261030211100_rls.sql`.
+
+---
+
+## MDI-D017
+
+**Data:** 2026-10-30
+
+**Decisão:**
+- **Identidade:** só `auth.users` do Supabase (e-mail e senha), sem senha paralela. Cadastro público desativado (`[auth] enable_signup = false`).
+- **Login:** feito **no navegador**, com a chave pública. Assim o limite de tentativas do Supabase vale por IP do usuário, e não pelo IP do servidor. A sessão fica em cookies (`@supabase/ssr`), compartilhada com o servidor.
+- **`src/proxy.ts`:** só renova a sessão e redireciona quem não tem sessão. Não é fronteira de segurança.
+- **Autorização:** no servidor (`getAdminContext`), com JWT validado por `getClaims` e perfil lido com a sessão do próprio usuário (a RLS só devolve o perfil dele). A autorização final é sempre da RLS. Toda Server Action futura do painel também verifica o perfil.
+- **Primeiro OWNER:** criado pela função `app.bootstrap_first_owner(email, nome)`, executada no SQL Editor do Dashboard (como `postgres`). Ela funciona só enquanto não existe OWNER e não é executável via API.
+- **Service role:** a aplicação não usa `service_role`. A chave secreta só entrará quando houver necessidade real (ex.: convite de administradores pelo painel), e apenas no servidor.
+
+**Motivo:** O Brain §22 diz que o front-end nunca é fronteira de segurança. O responsável pediu fundação de autenticação sem sistema de senha paralelo, primeiro OWNER sem e-mail no código e nenhum uso de `service_role` sem necessidade.
+
+**Impacto:**
+- No projeto remoto, desativar o cadastro e ajustar a política de senha exige configuração manual no Dashboard.
+- Convidar administradores pelo painel (Etapa 04) exigirá a chave secreta no servidor, com nova revisão de segurança.
+
+**Arquivos afetados:** `src/lib/supabase/{browser,server,proxy}.ts`, `src/proxy.ts`, `src/services/auth/*`, `src/components/admin/login-form.tsx`, `src/app/admin/**`, `supabase/config.toml`, `supabase/migrations/20261030210100_admin_profiles.sql`.
+
+---
+
+## MDI-D018
+
+**Data:** 2026-10-30
+
+**Decisão:** A implementação ajusta pontos do modelo descrito na auditoria (seção 5), sem contrariar as decisões D001–D012:
+
+- **Auditoria:**
+  - A tabela se chama `audit_logs`, com as colunas pedidas pelo responsável (`actor_user_id`, `entity_type`, `entity_id`, `operation`, `old_value`, `new_value`, `created_at`), mais `actor_role`, `source` e `changed_fields`.
+  - As operações `PUBLISH` e `UNPUBLISH` passam a ser explícitas.
+  - Alteração de preço e de disponibilidade é um `UPDATE` com o campo em `changed_fields`.
+- **Proteções no banco contra dados forjados pelo cliente:**
+  - `created_by`, `updated_by`, `deleted_by`, `created_at` e `updated_at` são sempre definidos por trigger.
+  - `price_from` só muda pelo recálculo interno.
+  - `published_at` só é preenchido na primeira publicação.
+  - Registros filhos não podem trocar de produto.
+- **Padrões seguros:** categorias e blocos da Home nascem inativos; produtos nascem `DRAFT`.
+- **Enum × CHECK:** `media_slot` virou CHECK (uso em uma única tabela). `section_theme` continua enum (será reutilizado).
+- **Funções do schema `app`:** nascem sem `EXECUTE` para `PUBLIC`; cada uso é concedido explicitamente.
+- **Adiados para a etapa que os usa:**
+  - `collections` e `collection_products`, com a coluna `homepage_sections.collection_id`: Etapa 05.
+  - `product_sections`: Etapa 04, aba Conteúdo.
+  - O desenho deles continua o da MDI-D009.
+- **Storage:** mantido um bucket `media` com as pastas do Brain §20 (MDI-D007), no lugar dos cinco buckets sugeridos. As políticas por pasta dão o mesmo controle, e a biblioteca `media_assets` fica com uma origem única.
+- **Leitura pública do bucket:** o bucket é público (URL direta via CDN), com caminhos em UUID. O anônimo não lista objetos, e os metadados de mídia não publicada ficam ocultos pela RLS. O arquivo de uma mídia ainda não publicada é acessível a quem souber a URL exata.
+
+**Motivo:** São ajustes surgidos na implementação e nas instruções da Etapa 02, registrados para manter rastreabilidade com a auditoria.
+
+**Impacto:** Novas tabelas devem seguir o mesmo padrão: RLS ativa na criação, grants explícitos, triggers de metadados e auditoria, e testes pgTAP. Esse padrão está em `docs/CONVENCOES.md`.
+
+**Arquivos afetados:** `supabase/migrations/*`, `supabase/tests/*`, `docs/CONVENCOES.md`.

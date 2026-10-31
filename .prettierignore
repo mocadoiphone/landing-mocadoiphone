@@ -10,3 +10,8 @@ coverage/
 next-env.d.ts
 package-lock.json
 AGENTS.md
+
+# Tipos gerados pelo Supabase CLI (npm run db:types)
+src/types/database.ts
+supabase/.temp/
+supabase/.branches/

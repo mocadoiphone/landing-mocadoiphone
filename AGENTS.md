@@ -14,4 +14,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 2. Respeite as decisões em `docs/decisoes/REGISTRO-DE-DECISOES.md`. Toda mudança estrutural gera uma nova decisão MDI-Dxxx.
 3. Siga `docs/CONVENCOES.md`: sem `any`, apenas design tokens, nada de preço/telefone/produto no código.
 4. O projeto avança por etapas numeradas (`docs/etapas/`). Execute só a etapa pedida.
-5. Antes de entregar: `npm run check` e `npm run build` verdes.
+5. Banco: toda mudança via migration em `supabase/migrations/` + testes pgTAP (`npm run db:test`). A segurança é da RLS, nunca só do front-end.
+6. Antes de entregar: `npm run check`, `npm run build` e, se o banco mudou, `npm run db:reset && npm run db:test` verdes.

@@ -1,0 +1,98 @@
+-- =============================================================================
+-- Fixtures compartilhadas pelos testes pgTAP (incluídas com \ir).
+-- Executadas como postgres dentro da transação de cada arquivo de teste
+-- (tudo é desfeito no ROLLBACK). IDs fixos para referência nos testes.
+--
+-- Usuários:
+--   ...0001 OWNER · ...0002 ADMIN · ...0003 CATALOG_MANAGER · ...0004 CONTENT_EDITOR
+--   ...0005 autenticado sem perfil · ...0006 ADMIN inativo
+-- =============================================================================
+
+set client_min_messages to warning;
+create extension if not exists pgtap with schema extensions;
+
+insert into auth.users (id, email, aud, role, instance_id)
+select u.id, u.email, 'authenticated', 'authenticated', '00000000-0000-0000-0000-000000000000'
+from (values
+  ('aaaaaaaa-0000-4000-8000-000000000001'::uuid, 'owner@tests.local'),
+  ('aaaaaaaa-0000-4000-8000-000000000002'::uuid, 'admin@tests.local'),
+  ('aaaaaaaa-0000-4000-8000-000000000003'::uuid, 'catalogo@tests.local'),
+  ('aaaaaaaa-0000-4000-8000-000000000004'::uuid, 'conteudo@tests.local'),
+  ('aaaaaaaa-0000-4000-8000-000000000005'::uuid, 'visitante@tests.local'),
+  ('aaaaaaaa-0000-4000-8000-000000000006'::uuid, 'inativo@tests.local')
+) as u (id, email);
+
+insert into public.admin_profiles (user_id, display_name, role, is_active)
+values
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'Owner de teste', 'OWNER', true),
+  ('aaaaaaaa-0000-4000-8000-000000000002', 'Admin de teste', 'ADMIN', true),
+  ('aaaaaaaa-0000-4000-8000-000000000003', 'Catálogo de teste', 'CATALOG_MANAGER', true),
+  ('aaaaaaaa-0000-4000-8000-000000000004', 'Conteúdo de teste', 'CONTENT_EDITOR', true),
+  ('aaaaaaaa-0000-4000-8000-000000000006', 'Inativo de teste', 'ADMIN', false);
+
+-- Categorias: uma ativa, uma inativa.
+insert into public.categories (id, name, slug, is_active)
+values
+  ('cccccccc-0000-4000-8000-000000000001', 'Categoria ativa', 't-ativa', true),
+  ('cccccccc-0000-4000-8000-000000000002', 'Categoria inativa', 't-inativa', false);
+
+insert into public.product_families (id, category_id, name, slug)
+values
+  ('dddddddd-0000-4000-8000-000000000001', 'cccccccc-0000-4000-8000-000000000001', 'Família ativa', 't-familia'),
+  ('dddddddd-0000-4000-8000-000000000002', 'cccccccc-0000-4000-8000-000000000002', 'Família da inativa', 't-familia');
+
+-- Produtos: rascunho, publicado e (mais abaixo) excluído.
+insert into public.products (id, category_id, family_id, name, slug)
+values
+  ('eeeeeeee-0000-4000-8000-000000000001', 'cccccccc-0000-4000-8000-000000000001', 'dddddddd-0000-4000-8000-000000000001', 'Rascunho', 't-rascunho'),
+  ('eeeeeeee-0000-4000-8000-000000000002', 'cccccccc-0000-4000-8000-000000000001', 'dddddddd-0000-4000-8000-000000000001', 'Publicado', 't-publicado'),
+  ('eeeeeeee-0000-4000-8000-000000000003', 'cccccccc-0000-4000-8000-000000000001', 'dddddddd-0000-4000-8000-000000000001', 'Excluído', 't-excluido');
+
+-- Variantes (preços em centavos).
+insert into public.product_variants (id, product_id, storage, color_name, price_cash, availability, is_default)
+values
+  ('ffffffff-0000-4000-8000-000000000001', 'eeeeeeee-0000-4000-8000-000000000001', '128 GB', 'Preto', 500000, 'AVAILABLE', true),
+  ('ffffffff-0000-4000-8000-000000000002', 'eeeeeeee-0000-4000-8000-000000000002', '256 GB', 'Preto', 899900, 'AVAILABLE', true),
+  ('ffffffff-0000-4000-8000-000000000003', 'eeeeeeee-0000-4000-8000-000000000002', '512 GB', 'Preto', 999900, 'HIDDEN', false),
+  ('ffffffff-0000-4000-8000-000000000004', 'eeeeeeee-0000-4000-8000-000000000003', '128 GB', 'Azul', 700000, 'AVAILABLE', true);
+
+-- Mídia: usada por publicado, usada por rascunho, sem uso.
+insert into public.media_assets (id, storage_path, kind, mime_type, size_bytes, width, height, alt_text)
+values
+  ('bbbbbbbb-0000-4000-8000-000000000001', 'products/t/publicado.webp', 'IMAGE', 'image/webp', 2048, 1000, 1000, 'Produto publicado'),
+  ('bbbbbbbb-0000-4000-8000-000000000002', 'products/t/rascunho.webp', 'IMAGE', 'image/webp', 2048, 1000, 1000, 'Produto em rascunho'),
+  ('bbbbbbbb-0000-4000-8000-000000000003', 'products/t/sem-uso.webp', 'IMAGE', 'image/webp', 2048, 1000, 1000, 'Sem uso');
+
+insert into public.product_media (product_id, media_asset_id, slot)
+values
+  ('eeeeeeee-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000002', 'MAIN'),
+  ('eeeeeeee-0000-4000-8000-000000000002', 'bbbbbbbb-0000-4000-8000-000000000001', 'MAIN'),
+  ('eeeeeeee-0000-4000-8000-000000000003', 'bbbbbbbb-0000-4000-8000-000000000001', 'MAIN');
+
+insert into public.product_specs (product_id, group_name, label, value)
+values
+  ('eeeeeeee-0000-4000-8000-000000000001', 'Tela', 'Tamanho', '6,1"'),
+  ('eeeeeeee-0000-4000-8000-000000000002', 'Tela', 'Tamanho', '6,9"');
+
+update public.products set status = 'PUBLISHED'
+where id in ('eeeeeeee-0000-4000-8000-000000000002', 'eeeeeeee-0000-4000-8000-000000000003');
+update public.products set deleted_at = now() where id = 'eeeeeeee-0000-4000-8000-000000000003';
+
+insert into public.homepage_sections (id, type, title, is_active)
+values
+  ('99999999-0000-4000-8000-000000000001', 'HERO_PRODUCT', 'Bloco ativo', true),
+  ('99999999-0000-4000-8000-000000000002', 'CTA', 'Bloco inativo', false);
+
+insert into public.contacts (id, name, whatsapp, is_active)
+values
+  ('88888888-0000-4000-8000-000000000001', 'Contato ativo', '5500000000001', true),
+  ('88888888-0000-4000-8000-000000000002', 'Contato inativo', '5500000000002', false);
+
+-- Configurações: uma pública e uma privada (independe do seed).
+insert into public.site_settings (key, value_json)
+values ('seo', '{"site_name": "Teste"}'), ('media', '{"video_upload_enabled": false}')
+on conflict (key) do nothing;
+
+-- Contato padrão determinístico: o contato ativo da fixture.
+update public.contacts set is_default = false where is_default;
+update public.contacts set is_default = true where id = '88888888-0000-4000-8000-000000000001';

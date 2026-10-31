@@ -47,6 +47,22 @@ Nunca escreva preço, telefone, número de WhatsApp ou nome de produto direto no
 - Toda regra de negócio em `src/lib/` precisa de teste unitário.
 - Componentes `async` (Server Components com dados) não são testados no Vitest: serão cobertos por E2E na Etapa 09.
 
+## Banco de dados (MDI-D008, D010, D018)
+
+- Toda mudança de schema é uma migration nova em `supabase/migrations/`. Nunca altere o banco remoto pelo Dashboard. Migration já aplicada no remoto não é editada: corrige-se com outra.
+- **Checklist para cada tabela nova:**
+  1. `enable row level security` na mesma migration da criação;
+  2. colunas `created_at`, `updated_at`, `created_by`, `updated_by` + trigger `app.set_row_metadata`;
+  3. se o comportamento for soft delete: `deleted_at`, `deleted_by`, trigger `app.set_soft_delete_metadata` e **sem** grant de `DELETE`;
+  4. trigger `app.audit_row_change('<coluna da PK>')`;
+  5. grants explícitos e políticas RLS por papel na migration de RLS (ou na própria migration, a partir da Etapa 03);
+  6. testes pgTAP cobrindo leitura pública, escrita por papel e constraints.
+- Funções internas ficam no schema `app` (não exposto pela API), com `security definer` e `set search_path = ''` quando leem tabelas protegidas. Elas nascem sem `EXECUTE` para `PUBLIC`: conceda só o necessário.
+- Unicidade de slug sempre parcial (`where deleted_at is null`).
+- Dinheiro em centavos (`integer`). Preço e disponibilidade vivem só na variante.
+- Depois de mudar o schema: `npm run db:reset`, `npm run db:test` e `npm run db:types`.
+- O cliente Supabase da aplicação usa só a chave pública. A chave secreta, quando existir, fica restrita a código server-only.
+
 ## Formatação
 
 - Prettier (configuração padrão + ordenação de classes Tailwind). Rode `npm run format` antes de commitar.

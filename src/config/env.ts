@@ -15,11 +15,65 @@ import { z } from "zod";
 const emptyToUndefined = (value: unknown): unknown =>
   typeof value === "string" && value.trim() === "" ? undefined : value;
 
+// Trava permanente: chave privilegiada em variável pública iria para o navegador
+// e ignoraria toda a RLS. Lista de PERMITIDOS — só passa uma chave pública íntegra:
+//   - `sb_publishable_…` (chave nova), ou
+//   - JWT legado com exatamente 3 segmentos e role `anon`.
+// Qualquer segmento com role `service_role` (inclusive colado a outra chave)
+// é tratado como segredo.
+export type SupabaseKeyKind = "publishable" | "anon-jwt" | "secret" | "invalid";
+
+function jwtRole(segment: string): unknown {
+  try {
+    const claims: unknown = JSON.parse(
+      atob(segment.replace(/-/g, "+").replace(/_/g, "/")),
+    );
+    return typeof claims === "object" && claims !== null && "role" in claims
+      ? claims.role
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function classifySupabaseKey(key: string): SupabaseKeyKind {
+  if (key.startsWith("sb_secret_")) return "secret";
+  if (/^sb_publishable_[A-Za-z0-9_-]+$/.test(key)) return "publishable";
+
+  const segments = key.split(".");
+  if (segments.some((segment) => jwtRole(segment) === "service_role")) {
+    return "secret";
+  }
+  if (segments.length === 3 && jwtRole(segments[1] ?? "") === "anon") {
+    return "anon-jwt";
+  }
+  return "invalid";
+}
+
 const publicEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.preprocess(emptyToUndefined, z.url().optional()),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.preprocess(
     emptyToUndefined,
-    z.string().min(1).optional(),
+    z
+      .string()
+      .min(1)
+      .superRefine((key, ctx) => {
+        const kind = classifySupabaseKey(key);
+        if (kind === "secret") {
+          ctx.addIssue({
+            code: "custom",
+            message:
+              "contém uma chave SECRETA (service_role/sb_secret). Use somente a chave pública anon ou publishable.",
+          });
+        } else if (kind === "invalid") {
+          ctx.addIssue({
+            code: "custom",
+            message:
+              "não é uma chave pública válida. Cole somente a chave anon (JWT) ou publishable (sb_publishable_…), completa e sem texto extra.",
+          });
+        }
+      })
+      .optional(),
   ),
 });
 
