@@ -7,6 +7,9 @@
 -- L3 Categoria e família só são excluídas sem filhos ativos.
 -- L4 Funções de `app` sem EXECUTE para PUBLIC: o `alter default privileges ...
 --    in schema app` da migration 01 não remove o padrão global do PostgreSQL.
+-- Idempotente (`create or replace`): no remoto, este SQL foi executado fora do
+--    CLI antes do `db push` (2026-10-31), sem registro no histórico. Reaplicar
+--    pelo CLI regulariza o histórico sem SQL manual (ETAPA-03, sincronização).
 -- Reversão: drop dos triggers e das funções criados aqui; restaurar
 --   app.check_product_media_kind da migration 07; drop function
 --   public.set_default_variant(uuid); alter default privileges for role postgres
@@ -16,7 +19,7 @@
 -- -----------------------------------------------------------------------------
 -- L1 · Variante padrão
 -- -----------------------------------------------------------------------------
-create function app.ensure_default_variant()
+create or replace function app.ensure_default_variant()
 returns trigger
 language plpgsql
 security definer
@@ -35,13 +38,13 @@ begin
 end;
 $$;
 
-create trigger ensure_default_variant
+create or replace trigger ensure_default_variant
   before insert on public.product_variants
   for each row execute function app.ensure_default_variant();
 
 -- Troca a variante padrão em uma única transação. SECURITY INVOKER: só quem pode
 -- editar variantes pela RLS consegue trocar; auth.uid() chega à auditoria.
-create function public.set_default_variant(p_variant_id uuid)
+create or replace function public.set_default_variant(p_variant_id uuid)
 returns void
 language plpgsql
 security invoker
@@ -83,7 +86,7 @@ grant execute on function public.set_default_variant(uuid) to authenticated;
 -- -----------------------------------------------------------------------------
 -- L2 · Produto publicado mantém os pré-requisitos de publicação
 -- -----------------------------------------------------------------------------
-create function app.guard_published_variant()
+create or replace function app.guard_published_variant()
 returns trigger
 language plpgsql
 security definer
@@ -114,11 +117,11 @@ begin
 end;
 $$;
 
-create trigger guard_published_variant
+create or replace trigger guard_published_variant
   before update on public.product_variants
   for each row execute function app.guard_published_variant();
 
-create function app.guard_published_main_image()
+create or replace function app.guard_published_main_image()
 returns trigger
 language plpgsql
 security definer
@@ -143,7 +146,7 @@ begin
 end;
 $$;
 
-create trigger guard_published_main_image
+create or replace trigger guard_published_main_image
   before update or delete on public.product_media
   for each row execute function app.guard_published_main_image();
 
@@ -178,7 +181,7 @@ $$;
 -- -----------------------------------------------------------------------------
 -- L3 · Categoria e família só são excluídas sem filhos ativos
 -- -----------------------------------------------------------------------------
-create function app.guard_category_soft_delete()
+create or replace function app.guard_category_soft_delete()
 returns trigger
 language plpgsql
 security definer
@@ -203,11 +206,11 @@ begin
 end;
 $$;
 
-create trigger guard_category_soft_delete
+create or replace trigger guard_category_soft_delete
   before update on public.categories
   for each row execute function app.guard_category_soft_delete();
 
-create function app.guard_family_soft_delete()
+create or replace function app.guard_family_soft_delete()
 returns trigger
 language plpgsql
 security definer
@@ -226,7 +229,7 @@ begin
 end;
 $$;
 
-create trigger guard_family_soft_delete
+create or replace trigger guard_family_soft_delete
   before update on public.product_families
   for each row execute function app.guard_family_soft_delete();
 
