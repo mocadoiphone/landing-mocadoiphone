@@ -5,7 +5,7 @@ Plataforma de catálogo premium e administrável da Moça do iPhone (mocadoiphon
 - **Fonte normativa:** [`moca-do-iphone-brain/BRAIN-MOCA-DO-IPHONE.md`](moca-do-iphone-brain/BRAIN-MOCA-DO-IPHONE.md). Em caso de conflito, o Brain prevalece até que uma nova decisão seja registrada.
 - **Decisões estruturais:** [`docs/decisoes/REGISTRO-DE-DECISOES.md`](docs/decisoes/REGISTRO-DE-DECISOES.md) (padrão MDI-Dxxx).
 - **Convenções de código:** [`docs/CONVENCOES.md`](docs/CONVENCOES.md).
-- **Etapas:** [00 — Auditoria](docs/auditoria/ETAPA-00-AUDITORIA.md) · [01 — Fundação técnica](docs/etapas/ETAPA-01-FUNDACAO-TECNICA.md) · [02 — Banco e autenticação](docs/etapas/ETAPA-02-BANCO-E-AUTENTICACAO.md).
+- **Etapas:** [00 — Auditoria](docs/auditoria/ETAPA-00-AUDITORIA.md) · [01 — Fundação técnica](docs/etapas/ETAPA-01-FUNDACAO-TECNICA.md) · [02 — Banco e autenticação](docs/etapas/ETAPA-02-BANCO-E-AUTENTICACAO.md) · [03 — Catálogo](docs/etapas/ETAPA-03-CATALOGO.md).
 
 ## Stack
 
@@ -28,42 +28,45 @@ npm run db:reset             # aplica migrations + seed de desenvolvimento
 npm run dev                  # http://localhost:3000 · painel em /admin
 ```
 
+Páginas técnicas do catálogo (Etapa 03, sem design final): `/<categoria>` (ex.: `/iphone`) e `/produto/<slug>`.
+
 Usuários do seed local: veja o cabeçalho de [`supabase/seed.sql`](supabase/seed.sql).
 
 ## Comandos
 
-| Comando                           | O que faz                                                   |
-| --------------------------------- | ----------------------------------------------------------- |
-| `npm run dev`                     | Servidor de desenvolvimento                                 |
-| `npm run build`                   | Build de produção (inclui checagem de tipos)                |
-| `npm run start`                   | Serve o build de produção                                   |
-| `npm run lint`                    | ESLint                                                      |
-| `npm run typecheck`               | Gera os tipos de rota do Next e roda `tsc --noEmit`         |
-| `npm run test`                    | Testes unitários e de componentes (Vitest, sem Docker)      |
-| `npm run test:watch`              | Os mesmos testes em modo observação                         |
-| `npm run test:integration`        | Testes contra a API real do Supabase local                  |
-| `npm run format` / `format:check` | Aplica / verifica a formatação (Prettier)                   |
-| `npm run check`                   | lint + typecheck + test + format:check                      |
-| `npm run db:start` / `db:stop`    | Sobe / para o Supabase local                                |
-| `npm run db:reset`                | Recria o banco local do zero (migrations + seed)            |
-| `npm run db:test`                 | Testes pgTAP (RLS, constraints, regras, auditoria, Storage) |
-| `npm run db:lint`                 | Linter de schema do Supabase                                |
-| `npm run db:types`                | Regenera `src/types/database.ts` a partir do schema local   |
+| Comando                           | O que faz                                                                             |
+| --------------------------------- | ------------------------------------------------------------------------------------- |
+| `npm run dev`                     | Servidor de desenvolvimento                                                           |
+| `npm run build`                   | Build de produção (inclui checagem de tipos)                                          |
+| `npm run start`                   | Serve o build de produção                                                             |
+| `npm run lint`                    | ESLint                                                                                |
+| `npm run typecheck`               | Gera os tipos de rota do Next e roda `tsc --noEmit`                                   |
+| `npm run test`                    | Testes unitários e de componentes (Vitest, sem Docker)                                |
+| `npm run test:watch`              | Os mesmos testes em modo observação                                                   |
+| `npm run test:integration`        | Testes contra a API real do Supabase local                                            |
+| `npm run format` / `format:check` | Aplica / verifica a formatação (Prettier)                                             |
+| `npm run check`                   | lint + typecheck + test + format:check                                                |
+| `npm run db:start` / `db:stop`    | Sobe / para o Supabase local                                                          |
+| `npm run db:reset`                | Recria o banco local do zero (migrations + seed)                                      |
+| `npm run db:test`                 | Testes pgTAP (RLS, constraints, regras, auditoria, Storage, privilégios, invariantes) |
+| `npm run db:lint`                 | Linter de schema do Supabase                                                          |
+| `npm run db:types`                | Regenera `src/types/database.ts` a partir do schema local                             |
 
 ## Estrutura atual
 
 ```txt
 src/
-├── app/          rotas (App Router): página técnica, /admin/login, /admin
-├── components/   apresentação (admin/)
+├── app/          rotas (App Router): página técnica, (site)/[categorySlug], (site)/produto/[slug], /admin/login, /admin
+├── components/   apresentação: admin/, catalog/
 ├── config/       configuração validada: env.ts (variáveis de ambiente), site.ts
-├── lib/          supabase/ (clientes browser, server, proxy) · auth/ (regras puras)
-├── services/     acesso a dados no servidor (auth/)
+├── lib/          regras puras: pricing/, availability/, slug/, whatsapp/, media/, catalog/, auth/
+│                 · supabase/ (clientes browser, server, público sem cookies, proxy)
+├── services/     acesso a dados no servidor: auth/, catalog/ (consultas, núcleo, actions), media/
 ├── styles/       tokens.css (design tokens provisórios) e globals.css
 ├── types/        database.ts (gerado pelo Supabase CLI)
 └── proxy.ts      renovação de sessão do /admin
 supabase/         config.toml · migrations/ · seed.sql (só local) · tests/ (pgTAP)
-tests/            integration/ (API real do Supabase local)
+tests/            integration/ (API real do Supabase local) · stubs/
 docs/             auditoria, etapas, decisões e convenções
 moca-do-iphone-brain/   Brain e agentes (normativos, não editar)
 ```

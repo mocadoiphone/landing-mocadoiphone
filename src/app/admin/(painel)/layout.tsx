@@ -5,6 +5,10 @@ import { getAdminContext } from "@/services/auth/session";
 
 // Autorização no servidor a cada requisição (o proxy só renova a sessão).
 // Toda Server Action futura do painel também deve verificar o perfil.
+
+// Lê a sessão no topo do layout: a rota pode bloquear no servidor (MDI-D020).
+export const instant = false;
+
 export default async function AdminPanelLayout({
   children,
 }: LayoutProps<"/admin">) {

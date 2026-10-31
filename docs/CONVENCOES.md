@@ -46,8 +46,25 @@ Nunca escreva preço, telefone, número de WhatsApp ou nome de produto direto no
 - Os testes ficam ao lado do arquivo testado: `nome.test.ts` (regra pura, ambiente Node) ou `nome.test.tsx` (componente, ambiente DOM).
 - Toda regra de negócio em `src/lib/` precisa de teste unitário.
 - Componentes `async` (Server Components com dados) não são testados no Vitest: serão cobertos por E2E na Etapa 09.
+- Módulos `server-only` podem ser importados nos testes: o Vitest os aponta para um stub (`tests/stubs/server-only.ts`).
 
-## Banco de dados (MDI-D008, D010, D018, D019)
+## Serviços e Server Actions (MDI-D024)
+
+- **Núcleo** (`src/services/<domínio>/mutations/*`, `*-queries.ts`):
+  - recebe o cliente Supabase e o input já validado, e devolve `CatalogResult` (`src/lib/catalog/result.ts`);
+  - escritas usam o cliente da **sessão** (`createSupabaseServerClient`); leituras públicas usam o cliente **público** sem cookies (`createSupabasePublicClient`);
+  - toda escrita confere a linha afetada (`.select(...).maybeSingle()`): a RLS não dá erro em `UPDATE`/`DELETE`, só filtra;
+  - erro do banco passa por `translateDbError`. Constraint nova com mensagem própria entra no mapa de `src/lib/catalog/errors.ts`.
+- **Server Actions** (`actions.ts`, `"use server"`):
+  - recebem `unknown` e passam por `runCatalogAction` (papel + Zod + núcleo + `updateTag`);
+  - nunca devolvem a linha do banco nem o erro cru;
+  - nenhuma regra de negócio na action: ela fica no núcleo ou em `src/lib`.
+- **Consultas públicas cacheadas:** ficam em `queries.ts`, com `'use cache'`, `cacheLife` e `cacheTag` (tags em `tags.ts`). Toda escrita invalida a tag afetada (MDI-D020).
+- **Testes:**
+  - o núcleo é testado em `tests/integration/` contra o Supabase **local**, com as sessões do seed;
+  - regras puras em `src/lib/**` têm teste unitário.
+
+## Banco de dados (MDI-D008, D010, D018, D019, D022, D023)
 
 - Toda mudança de schema é uma migration nova em `supabase/migrations/`. Nunca altere o banco remoto pelo Dashboard. Migration já aplicada no remoto não é editada: corrige-se com outra.
 - **Checklist para cada tabela nova:**
@@ -58,7 +75,10 @@ Nunca escreva preço, telefone, número de WhatsApp ou nome de produto direto no
   5. grants explícitos e políticas RLS por papel na migration de RLS (ou na própria migration, a partir da Etapa 03). Objetos novos em `public` nascem sem privilégios para `anon`, `authenticated` e `service_role` nos dois ambientes (MDI-D019): conceda só o necessário, inclusive em sequences;
   6. testes pgTAP cobrindo leitura pública, escrita por papel e constraints, e a linha da tabela em `07_privileges.test.sql`.
 - Depois de cada `db push`, compare o catálogo do remoto com o do local (tabelas, colunas, constraints, índices, policies, funções, triggers, grants, Storage). O sucesso do comando não basta.
-- Funções internas ficam no schema `app` (não exposto pela API), com `security definer` e `set search_path = ''` quando leem tabelas protegidas. Elas nascem sem `EXECUTE` para `PUBLIC`: conceda só o necessário.
+- Funções internas ficam no schema `app` (não exposto pela API), com `security definer` e `set search_path = ''` quando leem tabelas protegidas.
+  - Desde a MDI-D023, funções novas do `postgres` nascem sem `EXECUTE` para `PUBLIC` (padrão global). Mesmo assim, escreva `revoke all ... from public` na migration e conceda só o necessário.
+  - Funções expostas pela API (`public`) usam `security invoker`, para a RLS valer, e `EXECUTE` só para `authenticated`.
+- Regra de negócio que precisa valer sempre vai para o banco (trigger com `raise exception ... using hint = '<domínio>:<regra>'`), com espelho em `src/lib` quando o painel precisar mostrar a pendência antes (MDI-D022).
 - Unicidade de slug sempre parcial (`where deleted_at is null`).
 - Dinheiro em centavos (`integer`). Preço e disponibilidade vivem só na variante.
 - Depois de mudar o schema: `npm run db:reset`, `npm run db:test` e `npm run db:types`.

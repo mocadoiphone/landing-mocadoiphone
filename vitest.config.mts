@@ -1,11 +1,21 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "vitest/config";
 
 // Projetos (MDI-D014):
 // - unit: regras puras e configuração, em ambiente Node (`src/**/*.test.ts`);
 // - components: componentes React em DOM simulado (`src/**/*.test.tsx`);
 // - integration: API real do Supabase LOCAL (`tests/integration`), fora do `npm run test`.
+// `server-only` aponta para um stub: a proteção é do bundler do Next (MDI-D024).
 export default defineConfig({
-  resolve: { tsconfigPaths: true },
+  resolve: {
+    tsconfigPaths: true,
+    alias: {
+      "server-only": fileURLToPath(
+        new URL("./tests/stubs/server-only.ts", import.meta.url),
+      ),
+    },
+  },
   test: {
     projects: [
       {

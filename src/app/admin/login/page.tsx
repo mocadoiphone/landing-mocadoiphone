@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/admin/login-form";
 import { getAdminContext } from "@/services/auth/session";
 
+// Lê a sessão para redirecionar quem já entrou: pode bloquear no servidor (MDI-D020).
+export const instant = false;
+
 export default async function AdminLoginPage() {
   const admin = await getAdminContext();
   if (admin.status === "authorized") {

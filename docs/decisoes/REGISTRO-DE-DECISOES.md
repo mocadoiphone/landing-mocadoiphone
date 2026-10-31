@@ -24,6 +24,12 @@
 | MDI-D016 | Configurações públicas definidas por chave, na migration | Aprovada (Etapa 02) |
 | MDI-D017 | Fluxo de autenticação administrativa | Aprovada (Etapa 02) |
 | MDI-D018 | Ajustes ao modelo de dados da Etapa 00 na implementação | Aprovada (Etapa 02) |
+| MDI-D019 | Privilégios explícitos, independentes do ambiente | Aprovada (Etapa 02) |
+| MDI-D020 | Cache Components e páginas técnicas do catálogo | Etapa 03 |
+| MDI-D021 | Regras de exibição de preço, disponibilidade, variante e WhatsApp | Etapa 03 |
+| MDI-D022 | Invariantes do catálogo garantidas pelo banco | Etapa 03 |
+| MDI-D023 | Funções sem EXECUTE para PUBLIC (corrige a D018) | Etapa 03 |
+| MDI-D024 | Camada de serviços do catálogo | Etapa 03 |
 
 ---
 
@@ -408,3 +414,153 @@ As migrations já zeravam `anon` e `authenticated`, mas `service_role` e a seque
 - Tabelas criadas pelo Dashboard não ficam expostas pela API automaticamente. Pela regra do projeto, o Dashboard não altera o schema de qualquer forma.
 
 **Arquivos afetados:** `supabase/migrations/20261031104058_explicit_privileges.sql`, `supabase/tests/07_privileges.test.sql`, `docs/CONVENCOES.md`.
+
+---
+
+## MDI-D020
+
+**Data:** 2026-10-31
+
+**Decisão:**
+- **Modelo de cache:** o projeto adota o modelo recomendado do Next 16, **Cache Components** (`cacheComponents: true`, `partialPrefetching: true`). É a "API exata de cache" que a MDI-D011 deixou para confirmar.
+  - As consultas públicas usam `'use cache'` + `cacheLife("hours")` + `cacheTag`. As tags são `catalog` (catálogo) e `settings` (contato padrão e configurações públicas).
+  - Toda Server Action de escrita invalida a tag afetada com `updateTag`, para que a alteração apareça na leitura seguinte.
+  - O `cacheLife("hours")` é rede de segurança para alterações que não passem pelas actions.
+- **Painel:** as rotas `/admin` leem a sessão no topo do layout e recebem `export const instant = false` (autorizadas a bloquear no servidor). Não houve refatoração.
+- **Páginas técnicas** `/[categorySlug]` e `/produto/[slug]`, no grupo `(site)`:
+  - sem design final, com `robots: noindex`;
+  - o conteúdo depende do slug e chega por streaming dentro de `<Suspense>`, com estado de carregamento;
+  - o layout não consulta dados, então o build não depende do banco;
+  - imagens via `next/image` com `unoptimized`.
+
+**Motivo:**
+- A MDI-D011 exige leitura pública cacheada e invalidada por tag.
+- Na documentação do Next 16, `unstable_cache` pertence ao "modelo anterior".
+- O responsável pediu páginas técnicas mínimas nesta etapa, o que trouxe as consultas cacheadas para o uso real.
+
+**Impacto:**
+- **Status HTTP:** com o streaming, um produto não publicado ou inexistente mostra a página "não encontrada", mas responde **200** com `noindex`. Foi testado; o status não pode mudar depois de iniciado o streaming. O 404 real exige `generateStaticParams` com verificação prévia, ou checagem no proxy, e fica para as Etapas 05/07 junto com SEO.
+- **Cache no servidor:** é por instância (em memória) no modelo atual. A estratégia de cache distribuído fica para a Etapa 10, junto com o deploy.
+
+**Arquivos afetados:** `next.config.ts`, `src/services/catalog/queries.ts`, `src/services/catalog/tags.ts`, `src/services/catalog/action-runner.ts`, `src/app/(site)/**`, `src/app/admin/(painel)/layout.tsx`, `src/app/admin/login/page.tsx`, `src/app/not-found.tsx`.
+
+---
+
+## MDI-D021
+
+**Data:** 2026-10-31
+
+**Decisão:** As regras de exibição ficam em `src/lib`, como fonte única, e chegam prontas aos componentes.
+- **Preço** (`src/lib/pricing`):
+  - centavos viram reais sem centavos quando o valor é inteiro ("R$ 8.999") e com duas casas quando não é ("R$ 549,90"), com espaço não separável após "R$";
+  - a parcela sai como "ou {n}x de R$ {valor}". Quando `installment_text` está preenchido, **substitui** a linha gerada;
+  - "Consulte valores" aparece quando `price_on_request` está ligado ou não há `price_cash`;
+  - `price_old` só aparece (riscado, "de") se for maior que o preço à vista.
+- **Preço do produto (cards):**
+  - considera só variantes visíveis e não descontinuadas, o mesmo critério de `price_from`;
+  - mostra "A partir de" + menor preço quando há preços diferentes, e o preço único quando todas custam o mesmo;
+  - a parcela e o preço "de" vêm da variante mais barata.
+- **Disponibilidade** (`src/lib/availability`): rótulos do Brain §12. A do produto é derivada pela prioridade da MDI-D006. `HIDDEN` nunca é exibida ao público.
+- **Variante padrão efetiva** (`src/lib/catalog/variants`): a marcada como padrão, se visível; senão, a primeira visível na ordem. Rótulos: "256 GB / Preto" na interface e "256 GB Preto" na mensagem.
+- **WhatsApp** (`src/lib/whatsapp`):
+  - template de `site_settings.whatsapp` com `{produto}`, `{variante}` e `{origem}`; sem template, usa o texto do Brain §13;
+  - link `https://wa.me/<dígitos>?text=…` com o contato padrão ativo. Sem contato padrão, não há botão;
+  - a saída reproduz exatamente o exemplo do §13 (teste unitário).
+- **Valor digitado no painel:** `parseBRLToCents` aceita "8.999", "8.999,90", "R$ 549,9". Ponto só como separador de milhar.
+
+**Motivo:**
+- O Brain §11 dá o formato de exibição e proíbe preço no JSX.
+- O §13 dá o formato da mensagem.
+- O Brain lista `installment_text` sem definir o uso; tratá-lo como substituto permite textos como "em até 12x sem juros".
+- A MDI-D005 define o critério do "a partir de".
+
+**Impacto:** Componentes não formatam valores. Mudar a regra de exibição é mudar um arquivo de `src/lib`, coberto por testes.
+
+**Arquivos afetados:** `src/lib/pricing/`, `src/lib/availability/`, `src/lib/catalog/variants.ts`, `src/lib/whatsapp/`, `src/services/catalog/mappers.ts`.
+
+---
+
+## MDI-D022
+
+**Data:** 2026-10-31
+
+**Decisão:** Três invariantes do catálogo passam a ser garantidas pelo banco (migration `20261031171835_catalog_invariants`):
+- **Variante padrão (completa a D005):**
+  - a primeira variante **visível** de um produto vira padrão automaticamente (trigger);
+  - a troca é atômica pela função `public.set_default_variant(uuid)`, `SECURITY INVOKER`: só quem edita variantes pela RLS consegue trocar, e a auditoria registra o autor;
+  - variante oculta ou excluída não pode ser a padrão.
+- **Pré-requisitos mantidos (completa a D006):**
+  - produto publicado não pode ficar sem variante visível (ocultar ou excluir a última é bloqueado);
+  - nem sem imagem principal (remover ou mover a principal é bloqueado; trocar o arquivo é permitido);
+  - mídia excluída não pode ser vinculada.
+- **Exclusão de categoria e família:** é bloqueada enquanto houver filhos ativos. Desativar a categoria (`is_active = false`) continua permitido; é a forma intencional de tirar uma linha do ar.
+
+**Motivo:**
+- A revisão da Etapa 03 encontrou lacunas entre decisões aprovadas e o banco:
+  - a D005 pedia "exatamente uma padrão", mas o banco garantia só "no máximo uma";
+  - a D006 só verificava os pré-requisitos na transição para publicado;
+  - a exclusão de categoria tirava a linha inteira do site sem aviso.
+- As lacunas foram registradas antes da alteração e aprovadas no plano.
+
+**Impacto:**
+- Para remover a última variante visível ou a imagem principal, é preciso despublicar antes.
+- As mensagens chegam ao painel em português, associadas ao campo (`publish:*`, `catalog:*`, `media:*`, `variant:*`).
+- Cobertura: pgTAP `08_catalog_invariants` e testes de integração.
+
+**Arquivos afetados:** `supabase/migrations/20261031171835_catalog_invariants.sql`, `supabase/tests/08_catalog_invariants.test.sql`, `src/types/database.ts`.
+
+---
+
+## MDI-D023
+
+**Data:** 2026-10-31
+
+**Decisão:**
+- **Funções existentes:** nenhuma função tem `EXECUTE` para `PUBLIC`. A migration 15 revoga o privilégio de todas as funções do schema `app` (os grants explícitos a `anon`/`authenticated` das funções usadas pela RLS continuam).
+- **Funções futuras:** passam a nascer fechadas pelo padrão **global** do `postgres` (`alter default privileges for role postgres revoke execute on functions from public`).
+- **Testes:** o `07_privileges` verifica as duas coisas e confere que `set_default_variant` só é executável por `authenticated`.
+
+**Motivo:**
+- A MDI-D018 afirmava que as funções de `app` nasciam sem `EXECUTE` para `PUBLIC`. **Não era verdade.** O `alter default privileges ... in schema app` da migration 01 não remove o padrão global do PostgreSQL: privilégio padrão por schema só acrescenta.
+- A comparação de catálogo da Etapa 02 mostrou 11 funções abertas.
+- **Gravidade baixa:** o schema `app` não é exposto pela API. Mesmo assim era uma garantia registrada que não valia.
+
+**Impacto:**
+- Esta decisão corrige o texto da D018, sem editá-la.
+- Toda função nova precisa de `grant execute` explícito para quem a usa.
+
+**Arquivos afetados:** `supabase/migrations/20261031171835_catalog_invariants.sql`, `supabase/tests/07_privileges.test.sql`, `docs/CONVENCOES.md`.
+
+---
+
+## MDI-D024
+
+**Data:** 2026-10-31
+
+**Decisão:** A camada de serviços do catálogo tem três partes:
+- **Núcleo com cliente injetado** (`src/services/catalog/mutations/*`, `public-queries.ts`, `admin-queries.ts`, `src/services/media/mutations.ts`):
+  - recebe o cliente Supabase e o input já validado, e devolve `CatalogResult`: `{ ok, data }` ou `{ ok: false, error: { code, message, field?, fieldErrors? } }`;
+  - escritas usam a sessão do administrador (RLS + auditoria); leituras públicas usam o cliente público sem cookies;
+  - como a RLS não gera erro em `UPDATE`, só filtra, toda escrita confere a linha afetada e responde "não encontrado ou sem permissão".
+- **Server Actions finas** (`actions.ts`): recebem `unknown` e passam por `runCatalogAction`, que faz:
+  1. sessão e papel (catálogo: OWNER/ADMIN/CATALOG_MANAGER; mídia: também CONTENT_EDITOR);
+  2. validação com Zod (`src/lib/catalog/schemas.ts`);
+  3. chamada ao núcleo;
+  4. `updateTag`;
+  5. retorno só de ids, slugs e mensagens.
+- **Erros do banco** (`src/lib/catalog/errors.ts`): viram mensagens em português ligadas ao campo. Erro desconhecido vira mensagem genérica, sem detalhes internos.
+- **Produto e status:** produto nasce `DRAFT` e muda de status só por `setProductStatus`. Publicar confere todas as pendências de uma vez (espelho de `app.assert_product_publishable`), e o banco continua garantindo.
+- **Ordenação:** recebe a lista completa do escopo e grava 10, 20, 30… só nos itens que mudaram. As gravações são sequenciais.
+- **Mídia nesta etapa:** só metadados (`registerMediaAsset`), alt, exclusão segura e vínculos ao produto. O envio do arquivo ao Storage entra na Etapa 04 (decisão do responsável).
+- **Testes:** um alias do Vitest substitui `server-only` por um stub, para testar o núcleo contra o Supabase local.
+
+**Motivo:**
+- O guia de Server Actions do Next 16 trata cada action como entrada pública não confiável: autenticar, validar e restringir o retorno.
+- Injetar o cliente permite testar as regras com sessões reais (RLS e triggers de produção) sem depender do runtime do Next.
+
+**Impacto:**
+- O painel da Etapa 04 só consome as actions.
+- Regras novas entram no núcleo, com teste de integração.
+- Server Actions sem tela não ficam expostas: o Next remove do bundle as actions não referenciadas.
+
+**Arquivos afetados:** `src/services/catalog/**`, `src/services/media/**`, `src/lib/catalog/**`, `vitest.config.mts`, `tests/stubs/server-only.ts`, `tests/integration/**`.

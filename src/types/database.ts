@@ -737,7 +737,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      set_default_variant: {
+        Args: { p_variant_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       admin_role: "OWNER" | "ADMIN" | "CATALOG_MANAGER" | "CONTENT_EDITOR"
