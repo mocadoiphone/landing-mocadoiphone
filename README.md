@@ -5,7 +5,7 @@ Plataforma de catálogo premium e administrável da Moça do iPhone (mocadoiphon
 - **Fonte normativa:** [`moca-do-iphone-brain/BRAIN-MOCA-DO-IPHONE.md`](moca-do-iphone-brain/BRAIN-MOCA-DO-IPHONE.md). Em caso de conflito, o Brain prevalece até que uma nova decisão seja registrada.
 - **Decisões estruturais:** [`docs/decisoes/REGISTRO-DE-DECISOES.md`](docs/decisoes/REGISTRO-DE-DECISOES.md) (padrão MDI-Dxxx).
 - **Convenções de código:** [`docs/CONVENCOES.md`](docs/CONVENCOES.md).
-- **Etapas:** [00 — Auditoria](docs/auditoria/ETAPA-00-AUDITORIA.md) · [01 — Fundação técnica](docs/etapas/ETAPA-01-FUNDACAO-TECNICA.md) · [02 — Banco e autenticação](docs/etapas/ETAPA-02-BANCO-E-AUTENTICACAO.md) · [03 — Catálogo](docs/etapas/ETAPA-03-CATALOGO.md).
+- **Etapas:** [00 — Auditoria](docs/auditoria/ETAPA-00-AUDITORIA.md) · [01 — Fundação técnica](docs/etapas/ETAPA-01-FUNDACAO-TECNICA.md) · [02 — Banco e autenticação](docs/etapas/ETAPA-02-BANCO-E-AUTENTICACAO.md) · [03 — Catálogo](docs/etapas/ETAPA-03-CATALOGO.md) · [04 — Painel administrativo](docs/etapas/ETAPA-04-PAINEL-ADMINISTRATIVO.md).
 
 ## Stack
 
@@ -29,6 +29,7 @@ npm run dev                  # http://localhost:3000 · painel em /admin
 ```
 
 Páginas técnicas do catálogo (Etapa 03, sem design final): `/<categoria>` (ex.: `/iphone`) e `/produto/<slug>`.
+Painel administrativo (Etapa 04): `/admin` → dashboard, produtos, categorias, mídia, contatos, configurações e usuários.
 
 Usuários do seed local: veja o cabeçalho de [`supabase/seed.sql`](supabase/seed.sql).
 
@@ -44,6 +45,7 @@ Usuários do seed local: veja o cabeçalho de [`supabase/seed.sql`](supabase/see
 | `npm run test`                    | Testes unitários e de componentes (Vitest, sem Docker)                                |
 | `npm run test:watch`              | Os mesmos testes em modo observação                                                   |
 | `npm run test:integration`        | Testes contra a API real do Supabase local                                            |
+| `npm run test:e2e`                | Playwright: fluxos críticos do painel no navegador, só contra o Supabase local        |
 | `npm run format` / `format:check` | Aplica / verifica a formatação (Prettier)                                             |
 | `npm run check`                   | lint + typecheck + test + format:check                                                |
 | `npm run db:start` / `db:stop`    | Sobe / para o Supabase local                                                          |
@@ -56,17 +58,17 @@ Usuários do seed local: veja o cabeçalho de [`supabase/seed.sql`](supabase/see
 
 ```txt
 src/
-├── app/          rotas (App Router): página técnica, (site)/[categorySlug], (site)/produto/[slug], /admin/login, /admin
-├── components/   apresentação: admin/, catalog/
+├── app/          rotas (App Router): página técnica, (site)/[categorySlug], (site)/produto/[slug], /admin/login, admin/(painel)/*
+├── components/   apresentação: admin/ (ui/, forms/, media/, products/, …), catalog/
 ├── config/       configuração validada: env.ts (variáveis de ambiente), site.ts
-├── lib/          regras puras: pricing/, availability/, slug/, whatsapp/, media/, catalog/, auth/
+├── lib/          regras puras: pricing/, availability/, slug/, whatsapp/, media/, catalog/, admin/, forms/, contacts/, auth/
 │                 · supabase/ (clientes browser, server, público sem cookies, proxy)
-├── services/     acesso a dados no servidor: auth/, catalog/ (consultas, núcleo, actions), media/
+├── services/     acesso a dados no servidor: auth/, catalog/ (consultas, núcleo, actions), media/ (envio verificado), admin/
 ├── styles/       tokens.css (design tokens provisórios) e globals.css
 ├── types/        database.ts (gerado pelo Supabase CLI)
 └── proxy.ts      renovação de sessão do /admin
 supabase/         config.toml · migrations/ · seed.sql (só local) · tests/ (pgTAP)
-tests/            integration/ (API real do Supabase local) · stubs/
+tests/            integration/ (API real do Supabase local) · e2e/ (Playwright) · stubs/
 docs/             auditoria, etapas, decisões e convenções
 moca-do-iphone-brain/   Brain e agentes (normativos, não editar)
 ```

@@ -43,6 +43,8 @@ export default defineConfig({
           include: ["tests/integration/**/*.test.ts"],
           globalSetup: ["./tests/integration/global-setup.ts"],
           testTimeout: 15000,
+          // Um arquivo por vez: todos compartilham o mesmo banco local.
+          fileParallelism: false,
         },
       },
     ],

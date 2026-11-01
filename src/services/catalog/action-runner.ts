@@ -1,6 +1,6 @@
 import "server-only";
 
-import { updateTag } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 import { z } from "zod";
 
 import { type AdminRole } from "@/lib/auth/roles";
@@ -17,7 +17,8 @@ import { type CatalogClient } from "./mutations/shared";
  * 1. identidade e papel vêm da sessão, nunca do cliente;
  * 2. o input é validado com Zod;
  * 3. a escrita roda com a sessão do usuário (RLS + auditoria);
- * 4. em caso de sucesso, invalida as tags do site público;
+ * 4. em caso de sucesso, invalida as tags do site público e atualiza as telas
+ *    do painel (`refresh`, MDI-D025), que são dinâmicas;
  * 5. devolve só o resultado previsto, nunca a linha do banco nem o erro cru.
  */
 export async function runCatalogAction<Schema extends z.ZodType, T>(options: {
@@ -25,6 +26,8 @@ export async function runCatalogAction<Schema extends z.ZodType, T>(options: {
   schema: Schema;
   input: unknown;
   tags: readonly string[];
+  /** `false` para ações que não alteram dados (ex.: preparar um envio). */
+  refresh?: boolean;
   run: (
     client: CatalogClient,
     input: z.output<Schema>,
@@ -49,6 +52,7 @@ export async function runCatalogAction<Schema extends z.ZodType, T>(options: {
   const result = await options.run(client, parsed.data);
   if (result.ok) {
     for (const tag of options.tags) updateTag(tag);
+    if (options.refresh !== false) refresh();
   }
   return result;
 }

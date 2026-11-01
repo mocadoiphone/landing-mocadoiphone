@@ -78,5 +78,22 @@ select function_privs_are('public', 'set_default_variant', array['uuid'], r, arr
   r || ' não executa set_default_variant')
 from unnest(array['anon', 'service_role']) as r;
 
+-- Funções do painel (MDI-D027): só autenticados; cada uma confere o papel.
+select function_privs_are('public', f.name, f.args, 'authenticated', array['EXECUTE'],
+  'authenticated executa ' || f.name)
+from (values
+  ('list_admin_users', array[]::text[]),
+  ('grant_admin_profile', array['text', 'text', 'admin_role']),
+  ('set_default_contact', array['uuid'])
+) as f (name, args);
+select function_privs_are('public', f.name, f.args, r, array[]::text[],
+  r || ' não executa ' || f.name)
+from (values
+  ('list_admin_users', array[]::text[]),
+  ('grant_admin_profile', array['text', 'text', 'admin_role']),
+  ('set_default_contact', array['uuid'])
+) as f (name, args)
+cross join unnest(array['anon', 'service_role']) as r;
+
 select * from finish();
 rollback;

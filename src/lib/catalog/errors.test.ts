@@ -65,6 +65,31 @@ describe("translateDbError", () => {
     });
   });
 
+  it("trava de perfil (42501 com hint admin:) mantém a mensagem do banco", () => {
+    expect(
+      translateDbError({
+        code: "42501",
+        message:
+          "Não é permitido alterar o próprio papel nem desativar a própria conta.",
+        hint: "admin:self_change",
+      }),
+    ).toEqual({
+      code: "forbidden",
+      field: "role",
+      message:
+        "Não é permitido alterar o próprio papel nem desativar a própria conta.",
+    });
+  });
+
+  it("contato padrão não pode ser desativado", () => {
+    expect(
+      translateDbError({
+        code: "23514",
+        message: 'violates check constraint "contacts_default_is_available"',
+      }).field,
+    ).toBe("isActive");
+  });
+
   it("permissão e linha inexistente", () => {
     expect(translateDbError({ code: "42501" }).code).toBe("forbidden");
     expect(translateDbError({ code: "PGRST116" }).code).toBe("not_found");

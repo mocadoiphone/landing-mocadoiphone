@@ -47,6 +47,7 @@ Nunca escreva preço, telefone, número de WhatsApp ou nome de produto direto no
 - Toda regra de negócio em `src/lib/` precisa de teste unitário.
 - Componentes `async` (Server Components com dados) não são testados no Vitest: serão cobertos por E2E na Etapa 09.
 - Módulos `server-only` podem ser importados nos testes: o Vitest os aponta para um stub (`tests/stubs/server-only.ts`).
+- **E2E (MDI-D029):** `npm run test:e2e` (Playwright), só contra o Supabase local e com os usuários do seed. Fluxo crítico novo do painel ganha um passo em `tests/e2e/`. Selecione por papel e rótulo acessível (`getByRole`, `getByLabel`), nunca por classe CSS.
 
 ## Serviços e Server Actions (MDI-D024)
 
@@ -63,6 +64,19 @@ Nunca escreva preço, telefone, número de WhatsApp ou nome de produto direto no
 - **Testes:**
   - o núcleo é testado em `tests/integration/` contra o Supabase **local**, com as sessões do seed;
   - regras puras em `src/lib/**` têm teste unitário.
+
+## Painel administrativo (MDI-D025, D026)
+
+- **Página nova do painel:** fica em `src/app/admin/(painel)/`, com `export const instant = false`, e começa com `const access = await requireAdminPage("<área>"); if (!access.ok) return <Forbidden />;`. A área vem de `AREA_ROLES` (`src/lib/auth/permissions.ts`), que espelha a RLS. Esconder item do menu é só UX.
+- **Leitura:** pelo cliente da sessão (`createSupabaseServerClient`) em `src/services/admin/queries.ts`. As telas recebem DTOs serializáveis, nunca o cliente.
+- **Formulário:** client component com `useActionForm(action, spec, extra)`; o `spec` diz o tipo de cada campo (`text`, `money`, `int`, `boolean`, `list`).
+  - Campos do kit `src/components/admin/ui/fields.tsx`, com `errors={errors("campo")}`.
+  - Resultado em `<ActionMessage result={state} />`.
+  - Ações de botão usam `useActionRunner`.
+- **Ação destrutiva ou sensível** (excluir, despublicar, trocar papel): sempre com `ConfirmDialog`. O diálogo fecha ao confirmar e o resultado aparece na tela, inclusive o bloqueio do banco.
+- **Tipos de módulos `server-only` em client component:** importe com `import type { … }`, nunca com importação de valor.
+- **Mídia:** só pelo envio verificado (`UploadField`/`MediaPicker` → preparar → Storage → finalizar). Não criar atalho que registre caminho sem conferir o arquivo.
+- **Visual:** funcional e consistente, só com tokens. Sem motion no painel. Alvos de toque de 40 px ou mais, foco visível, teclado em tudo.
 
 ## Banco de dados (MDI-D008, D010, D018, D019, D022, D023)
 

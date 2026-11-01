@@ -18,19 +18,19 @@ import { SLUG_MAX_LENGTH, SLUG_PATTERN } from "@/lib/slug/slug";
 
 const MAX_CENTS = 2_147_483_647;
 
-const id = (label = "Identificador") => z.uuid(`${label} inválido.`);
+export const id = (label = "Identificador") => z.uuid(`${label} inválido.`);
 
-const requiredText = (max: number, label: string) =>
+export const requiredText = (max: number, label: string) =>
   z
     .string(`Informe ${label}.`)
     .trim()
     .min(1, `Informe ${label}.`)
     .max(max, `Use no máximo ${max} caracteres.`);
 
-const blankToNull = (value: unknown) =>
+export const blankToNull = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? null : value;
 
-const optionalText = (max: number) =>
+export const optionalText = (max: number) =>
   z
     .preprocess(
       blankToNull,
@@ -54,7 +54,7 @@ const optionalSlug = (max: number) =>
     )
     .optional();
 
-const optionalId = (label?: string) =>
+export const optionalId = (label?: string) =>
   z.preprocess(blankToNull, id(label).nullable()).optional();
 
 const optionalCents = z
@@ -65,7 +65,7 @@ const optionalCents = z
   .nullable()
   .optional();
 
-const orderedIds = z
+export const orderedIds = z
   .array(id(), "Informe a nova ordem.")
   .min(1, "Informe a nova ordem.")
   .max(500, "Lista grande demais.");

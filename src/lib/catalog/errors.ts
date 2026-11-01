@@ -106,6 +106,24 @@ const CONSTRAINT_MESSAGES: Record<string, ConstraintMessage> = {
     field: "variantId",
     message: "A variante escolhida não pertence a este produto.",
   },
+  // Contatos (Etapa 04)
+  contacts_default_is_available: {
+    field: "isActive",
+    message:
+      "Este é o contato padrão. Defina outro contato como padrão antes de desativá-lo ou excluí-lo.",
+  },
+  contacts_single_default: {
+    field: "isDefault",
+    message: "Já existe um contato padrão.",
+  },
+  contacts_whatsapp_check: {
+    field: "whatsapp",
+    message: "WhatsApp inválido. Use DDD e número.",
+  },
+  contacts_phone_check: {
+    field: "phone",
+    message: "Telefone inválido. Use DDD e número.",
+  },
 };
 
 // Regras de negócio levantadas pelas funções do banco (`hint` das exceções P0001).
@@ -114,7 +132,15 @@ const HINT_FIELDS: Record<string, string> = {
   "publish:last_main_image": "slot",
   "media:slot_kind_mismatch": "slot",
   "media:deleted": "mediaAssetId",
+  "media:in_use": "id",
   "variant:default_unavailable": "isDefault",
+  "contact:default_unavailable": "isDefault",
+  "admin:user_not_found": "email",
+  "admin:user_not_confirmed": "email",
+  "admin:profile_exists": "email",
+  "admin:invalid_name": "displayName",
+  "admin:last_owner": "role",
+  "admin:self_change": "role",
 };
 
 const GENERIC_MESSAGE =
@@ -146,6 +172,16 @@ function fromConstraint(
 export function translateDbError(error: DbErrorLike): CatalogError {
   switch (error.code) {
     case "42501":
+      // Travas dos perfis (ex.: alterar o próprio papel) têm mensagem própria.
+      if (error.hint?.startsWith("admin:") && error.message) {
+        return {
+          code: "forbidden",
+          message: error.message,
+          ...(HINT_FIELDS[error.hint]
+            ? { field: HINT_FIELDS[error.hint] }
+            : {}),
+        };
+      }
       return {
         code: "forbidden",
         message: "Você não tem permissão para esta operação.",

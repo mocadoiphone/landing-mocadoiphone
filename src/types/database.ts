@@ -737,6 +737,30 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      grant_admin_profile: {
+        Args: {
+          p_display_name: string
+          p_email: string
+          p_role: Database["public"]["Enums"]["admin_role"]
+        }
+        Returns: string
+      }
+      list_admin_users: {
+        Args: never
+        Returns: {
+          created_at: string
+          display_name: string
+          email: string
+          is_active: boolean
+          last_sign_in_at: string
+          role: Database["public"]["Enums"]["admin_role"]
+          user_id: string
+        }[]
+      }
+      set_default_contact: {
+        Args: { p_contact_id: string }
+        Returns: undefined
+      }
       set_default_variant: {
         Args: { p_variant_id: string }
         Returns: undefined

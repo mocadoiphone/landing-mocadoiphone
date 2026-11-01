@@ -2,6 +2,7 @@ import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 
 import { requireSupabaseEnv } from "@/config/env";
 import { type Database } from "@/types/database";
@@ -13,6 +14,9 @@ import { type Database } from "@/types/database";
  * Crie um cliente por requisição; nunca compartilhe entre usuários.
  */
 export async function createSupabaseServerClient() {
+  // A sessão depende do relógio (expiração do token): só na requisição real,
+  // nunca na pré-renderização da pré-busca (Cache Components, MDI-D020).
+  await connection();
   const { url, anonKey } = requireSupabaseEnv();
   const cookieStore = await cookies();
 

@@ -30,6 +30,11 @@
 | MDI-D022 | Invariantes do catálogo garantidas pelo banco | Etapa 03 |
 | MDI-D023 | Funções sem EXECUTE para PUBLIC (corrige a D018) | Etapa 03 |
 | MDI-D024 | Camada de serviços do catálogo | Etapa 03 |
+| MDI-D025 | Estrutura do painel administrativo | Aprovada (Etapa 04) |
+| MDI-D026 | Envio de mídia por URL temporária com verificação no servidor | Aprovada (Etapa 04) |
+| MDI-D027 | Administradores sem service_role e contato padrão atômico | Aprovada (Etapa 04) |
+| MDI-D028 | Blocos editoriais do produto adiados para a Etapa 05 | Aprovada (Etapa 04) |
+| MDI-D029 | Playwright antecipado para os fluxos críticos | Aprovada (Etapa 04) |
 
 ---
 
@@ -564,3 +569,142 @@ As migrations já zeravam `anon` e `authenticated`, mas `service_role` e a seque
 - Server Actions sem tela não ficam expostas: o Next remove do bundle as actions não referenciadas.
 
 **Arquivos afetados:** `src/services/catalog/**`, `src/services/media/**`, `src/lib/catalog/**`, `vitest.config.mts`, `tests/stubs/server-only.ts`, `tests/integration/**`.
+
+---
+
+## MDI-D025
+
+**Data:** 2026-11-01
+
+**Decisão:** O painel administrativo segue a estrutura abaixo.
+- **Rotas:** as do Brain §6, em `src/app/admin/(painel)/`: dashboard, produtos (lista, novo, editor), categorias, mídia, contatos, configurações e usuários. `/admin` redireciona para o dashboard. Home, banners e coleções ficam para a Etapa 05; SEO, para a Etapa 07.
+- **Permissões por área:** `src/lib/auth/permissions.ts` (`AREA_ROLES`) espelha a RLS. A mesma tabela alimenta:
+  - o **menu**, que é só UX;
+  - a **proteção de cada página no servidor** (`requireAdminPage(área)`: sem sessão → login; sem papel → "Sem permissão");
+  - as **Server Actions**.
+
+  A garantia final continua sendo a RLS.
+- **Editor de produto:** abas por URL (`?aba=geral|comercial|variantes|midia|conteudo|seo`), cada uma renderizada no servidor.
+  - Painel de publicação mostra as pendências antes; Publicar fica desabilitado enquanto houver alguma.
+  - Pré-visualização usa as mesmas regras do site: preço, parcelamento, disponibilidade, variante selecionada e estado de publicação.
+- **Formulários:** client components com `useActionState`. A conversão de FormData fica em `src/lib/forms` (reais → centavos, checkbox → booleano); a validação que vale é a do servidor.
+  - Toda action de escrita chama `updateTag` (site público) e `refresh()` (telas do painel) no sucesso.
+- **Componentes próprios em HTML nativo, sem biblioteca de UI** (decisão do responsável):
+  - `<dialog>` nativo para diálogos e confirmações;
+  - abas como links com `aria-current`;
+  - ordenação por botões ↑↓;
+  - campos com label, ajuda e erro ligados por `aria-describedby`.
+- **Cache Components:**
+  - as rotas do painel têm `instant = false`;
+  - o cliente Supabase com sessão chama `connection()` antes de ler a sessão, para não rodar na pré-renderização da pré-busca (`Date.now()` do supabase-js).
+
+**Motivo:**
+- O Brain §15 pede painel para pessoa sem conhecimento técnico.
+- O responsável pediu clareza, velocidade de operação, consistência, acessibilidade e notebook/tablet, sem visual "cinematográfico".
+- Também pediu que o menu oculto nunca fosse fronteira de segurança.
+
+**Impacto:**
+- Uma única tabela de papéis por área.
+- Telas novas seguem o mesmo kit (`src/components/admin/ui`) e o mesmo padrão de formulário (`docs/CONVENCOES.md`).
+
+**Arquivos afetados:** `src/app/admin/(painel)/**`, `src/components/admin/**`, `src/lib/auth/permissions.ts`, `src/lib/forms/`, `src/lib/admin/`, `src/services/auth/page-guard.ts`, `src/services/admin/`, `src/services/catalog/action-runner.ts`, `src/lib/supabase/server.ts`.
+
+---
+
+## MDI-D026
+
+**Data:** 2026-11-01
+
+**Decisão:** O envio de arquivos é feito em três passos, sem dependência nova:
+1. **Preparo** (`prepareMediaUploadAction`): o servidor valida papel, pasta do §20, formato, tamanho e "vídeo habilitado"; gera o caminho `<pasta>/<uuid>.<ext>`; e devolve uma URL de envio **temporária** (`createSignedUploadUrl` com a sessão do usuário, então a política de insert do Storage vale).
+2. **Envio:** o navegador manda o arquivo direto ao Storage, sem passar pelo limite de 1 MB das Server Actions. Antes, mostra a prévia e lê as dimensões da imagem.
+3. **Finalização** (`finalizeMediaUploadAction`): o servidor confere o objeto real e, se tudo estiver certo, registra em `media_assets`. Se a conferência ou o registro falharem, **apaga o arquivo**. A conferência verifica:
+   - existência, tamanho e tipo (`storage.info`);
+   - extensão igual à preparada;
+   - os primeiros bytes (`lib/media/signature`: JPEG, PNG, WEBP, AVIF, MP4), que precisam bater com o tipo declarado.
+
+Outras regras:
+- Não existe action que registre um caminho de mídia sem essa verificação. O `registerMediaAssetAction` da Etapa 03 foi removido; o núcleo `registerMediaAsset` só é chamado pela finalização.
+- As dimensões vêm do navegador, validadas como inteiros positivos com limite.
+- A limpeza automática de arquivos órfãos (envio abandonado entre os passos 2 e 3) **não** foi implementada nesta etapa. Fica para a Etapa 09 (pedido do responsável).
+
+**Motivo:** O responsável exigiu validar tamanho, tipo real e conteúdo, e apagar o arquivo se o registro falhar. O mime enviado pelo navegador não é confiável; a assinatura do arquivo é.
+
+**Impacto:**
+- **Arquivo falso é recusado:** HTML com extensão `.png` é rejeitado e apagado (teste de integração).
+- **Risco residual baixo:** dimensões informadas pelo navegador afetam só o layout.
+- **Possíveis órfãos no Storage** até a Etapa 09.
+
+**Arquivos afetados:** `src/services/media/upload.ts`, `src/services/media/actions.ts`, `src/lib/media/signature.ts`, `src/lib/admin/schemas.ts`, `src/components/admin/media/*`.
+
+---
+
+## MDI-D027
+
+**Data:** 2026-11-01
+
+**Decisão:** A gestão de administradores não usa `service_role`, convite por e-mail nem SMTP (escolha do responsável). Migration 16 (`20261101001906_admin_panel`):
+- **`public.list_admin_users()`** (`SECURITY DEFINER`): só OWNER e ADMIN. Devolve os perfis com e-mail e último acesso. O e-mail é dado pessoal e não é exposto a outros papéis.
+- **`public.grant_admin_profile(email, nome, papel)`** (`SECURITY DEFINER`): só o OWNER.
+  - Exige que o login exista e esteja confirmado; o responsável o cria em *Authentication → Users*.
+  - Não duplica perfil.
+  - A auditoria registra o OWNER como autor.
+- **`public.set_default_contact(uuid)`** (`SECURITY INVOKER`): troca atômica do contato padrão, com a RLS de OWNER e ADMIN valendo. Mesmo motivo da variante padrão: o índice único parcial impede duas gravações.
+- Trocar papel, ativar e desativar continua pela edição normal de `admin_profiles` (RLS de OWNER). As travas da migration 02 impedem alterar o próprio papel e ficar sem OWNER; as mensagens chegam traduzidas ao painel.
+- As três funções têm `EXECUTE` só para `authenticated` (testado em `07_privileges`).
+
+**Motivo:**
+- Evitar a chave secreta na aplicação (MDI-D017, D019).
+- O e-mail padrão do Supabase só entrega para a equipe, então convites dependeriam de SMTP próprio.
+
+**Impacto:**
+- Adicionar um administrador são dois passos (login no Dashboard, perfil no painel).
+- Recuperação de senha por e-mail continua indisponível para outros administradores até haver SMTP.
+
+**Arquivos afetados:** `supabase/migrations/20261101001906_admin_panel.sql`, `supabase/tests/09_admin_panel.test.sql`, `supabase/tests/07_privileges.test.sql`, `src/services/admin/*`, `src/components/admin/users/*`, `src/components/admin/contacts/*`.
+
+---
+
+## MDI-D028
+
+**Data:** 2026-11-01
+
+**Decisão:**
+- Os blocos editoriais do produto (benefícios e seções editoriais, tabela `product_sections`) saem da Etapa 04 e entram na **Etapa 05**, junto com a Home e o design.
+- Na Etapa 04, a aba Conteúdo do editor tem só as especificações.
+- Ajusta a MDI-D018, que previa `product_sections` na Etapa 04.
+
+**Motivo:**
+- Os blocos usam o mesmo sistema da Home (MDI-D009) e só aparecem no site com o design da Etapa 05.
+- Definir os campos de cada bloco antes de ver como aparecem arriscaria retrabalho.
+- Decisão do responsável.
+
+**Impacto:** Nenhuma tabela nova nesta etapa para conteúdo editorial. A aba Conteúdo avisa que os blocos chegam na Etapa 05.
+
+**Arquivos afetados:** `src/components/admin/products/editor/specs-tab.tsx`.
+
+---
+
+## MDI-D029
+
+**Data:** 2026-11-01
+
+**Decisão:**
+- **Adoção:** Playwright (`@playwright/test`, dependência de desenvolvimento) passa a cobrir os fluxos críticos do painel já na Etapa 04. Ajusta a MDI-D014, que o previa só na Etapa 09.
+- **Ambiente controlado:** os testes rodam **só contra o Supabase local**.
+  - `tests/e2e/serve.mjs` lê URL e chave pública do `supabase status`, recusa qualquer endereço que não seja local, faz o build de produção e sobe na porta 3100.
+  - Usuários do seed local: OWNER, CONTENT_EDITOR (acrescentado ao seed) e conta sem perfil.
+  - Um teste por vez, porque todos compartilham o mesmo banco.
+- **Comando:** `npm run test:e2e`, que não faz parte do `npm run check` (exige Supabase local e navegador).
+- **Fluxos cobertos:**
+  - login; categoria e família; produto; variante com preço e parcelamento; envio de imagem verificado; publicação com pendências antes; página pública; edição de preço refletida no site (invalidação de cache ponta a ponta); despublicação; Sair;
+  - recusas por papel pela URL; conta sem perfil; sem sessão;
+  - painel no celular (viewport Pixel 7).
+
+**Motivo:** O Brain §38 exige os fluxos de admin funcionando de ponta a ponta. O responsável autorizou e pediu a validação do cache do painel ao site sem deploy.
+
+**Impacto:**
+- O Chromium do Playwright é baixado uma vez para a máquina.
+- Os artefatos (`test-results/`, `playwright-report/`) ficam fora do git.
+
+**Arquivos afetados:** `package.json`, `playwright.config.ts`, `tests/e2e/**`, `supabase/seed.sql`, `.gitignore`, `.prettierignore`.

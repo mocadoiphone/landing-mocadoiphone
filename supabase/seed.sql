@@ -6,6 +6,7 @@
 --
 -- Usuários locais (senha de desenvolvimento, só existem em 127.0.0.1):
 --   dono@local.test       / Moca-Dev-2026  → perfil OWNER
+--   conteudo@local.test   / Moca-Dev-2026  → perfil CONTENT_EDITOR (testes E2E de papel)
 --   visitante@local.test  / Moca-Dev-2026  → autenticado SEM perfil administrativo
 -- =============================================================================
 
@@ -27,7 +28,8 @@ select
   '', '', '', '', '', '', '', ''
 from (values
   ('00000000-0000-4000-a000-000000000001'::uuid, 'dono@local.test'),
-  ('00000000-0000-4000-a000-000000000002'::uuid, 'visitante@local.test')
+  ('00000000-0000-4000-a000-000000000002'::uuid, 'visitante@local.test'),
+  ('00000000-0000-4000-a000-000000000003'::uuid, 'conteudo@local.test')
 ) as u (id, email);
 
 insert into auth.identities (id, user_id, provider_id, provider, identity_data, last_sign_in_at, created_at, updated_at)
@@ -36,10 +38,14 @@ select
   jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true),
   now(), now(), now()
 from auth.users u
-where u.email in ('dono@local.test', 'visitante@local.test');
+where u.email in ('dono@local.test', 'visitante@local.test', 'conteudo@local.test');
 
 -- Primeiro OWNER pelo mesmo caminho documentado para o projeto remoto.
 select app.bootstrap_first_owner('dono@local.test', 'Dono (desenvolvimento)');
+
+-- Editor de conteúdo: só a biblioteca de mídia nesta etapa (Brain §23).
+insert into public.admin_profiles (user_id, display_name, role)
+values ('00000000-0000-4000-a000-000000000003', 'Editor de conteúdo (desenvolvimento)', 'CONTENT_EDITOR');
 
 -- -----------------------------------------------------------------------------
 -- Categorias do Brain (§6, §7.4).

@@ -15,3 +15,5 @@ AGENTS.md
 src/types/database.ts
 supabase/.temp/
 supabase/.branches/
+test-results/
+playwright-report/

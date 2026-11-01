@@ -1,23 +1,16 @@
 import "server-only";
 
+import { AREA_ROLES } from "@/lib/auth/permissions";
 import { type AdminRole } from "@/lib/auth/roles";
 import { type CatalogResult, failure, success } from "@/lib/catalog/result";
 import { type AdminContext } from "@/services/auth/session";
 
 /**
- * Papéis por operação (Brain §23). Espelham as políticas RLS da migration 12:
- * servem para recusar cedo, com mensagem clara. A garantia final é a RLS.
+ * Papéis por operação (Brain §23). Vêm de `AREA_ROLES`, que espelha as políticas
+ * RLS: servem para recusar cedo, com mensagem clara. A garantia final é a RLS.
  */
-export const CATALOG_WRITE_ROLES = [
-  "OWNER",
-  "ADMIN",
-  "CATALOG_MANAGER",
-] as const satisfies readonly AdminRole[];
-
-export const MEDIA_WRITE_ROLES = [
-  ...CATALOG_WRITE_ROLES,
-  "CONTENT_EDITOR",
-] as const satisfies readonly AdminRole[];
+export const CATALOG_WRITE_ROLES = AREA_ROLES.catalog;
+export const MEDIA_WRITE_ROLES = AREA_ROLES.media;
 
 export function authorize(
   context: AdminContext,
