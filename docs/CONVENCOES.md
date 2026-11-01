@@ -66,8 +66,11 @@ Nunca escreva preço, telefone, número de WhatsApp ou nome de produto direto no
 
 ## Banco de dados (MDI-D008, D010, D018, D019, D022, D023)
 
-- Toda mudança de schema é uma migration nova em `supabase/migrations/`. Nunca altere o banco remoto pelo Dashboard. Migration já aplicada no remoto não é editada: corrige-se com outra.
-- Escreva migrations idempotentes sempre que possível (`create or replace function`, `create or replace trigger`, `if not exists`). Assim uma execução fora do CLI não trava o `db push` seguinte (ocorreu na Etapa 03).
+- **Regras de mudança no banco** (decisão do responsável, 2026-10-31):
+  1. Mudanças estruturais são feitas **só por migrations versionadas** em `supabase/migrations/`, aplicadas pelo CLI. Migration já aplicada no remoto não é editada: corrige-se com outra.
+  2. **Evitar SQL estrutural manual no Dashboard** (SQL Editor, Table Editor).
+  3. **Execução manual excepcional deve ser registrada** no documento da etapa: o quê, quando, por quem, por quê e como foi regularizada no histórico de migrations.
+  4. **Migrations idempotentes só quando isso não mascarar drift ou inconsistências.** Por exemplo: `create or replace` é aceitável depois de comparar o remoto com o repositório e confirmar que o conteúdo é o mesmo. Não deve ser usado para "passar por cima" de um objeto diferente.
 - **Checklist para cada tabela nova:**
   1. `enable row level security` na mesma migration da criação;
   2. colunas `created_at`, `updated_at`, `created_by`, `updated_by` + trigger `app.set_row_metadata`;

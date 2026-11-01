@@ -1,6 +1,6 @@
 # ETAPA 03 — Catálogo
 
-> Data: 2026-10-31 · Papéis: `engenheiro-software.md` (plano), `modelagem-dados.md`, `desenvolvedor.md`, `seguranca.md`, `qa.md` · Plano aprovado pelo responsável antes da implementação.
+> Data: 2026-10-31 · Papéis: `engenheiro-software.md` (plano), `modelagem-dados.md`, `desenvolvedor.md`, `seguranca.md`, `qa.md` · Plano aprovado pelo responsável antes da implementação · **Etapa aprovada e encerrada pelo responsável em 2026-10-31.**
 
 ## Objetivo
 
@@ -177,7 +177,7 @@ O Brain, as decisões MDI-D001 a D019 e o schema foram revisados.
 4. **Catálogo real no remoto:** o remoto não tem categorias nem produtos. Entram pelo painel (Etapa 04) ou pela migração (Etapa 08), sem publicação automática (§35).
 5. **Artigo da mensagem do WhatsApp:** o template padrão diz "o {produto}" ("o iPhone"). Para "a Apple Watch", o texto é ajustável no template do painel; não há regra de gênero no código.
 6. **Herdadas da Etapa 02:** e-mail do OWNER, política de senha remota, revogação de tokens.
-7. **Origem da execução manual das 15:43** (seção "Sincronização com ambiente remoto"): verificar o histórico do SQL Editor, os membros do projeto e os tokens da conta.
+7. ~~Origem da execução manual das 15:43~~: esclarecida pelo responsável (seção "Sincronização com ambiente remoto"). Fica registrada como divergência operacional, sem ação de segurança.
 
 ## Riscos
 
@@ -185,10 +185,9 @@ O Brain, as decisões MDI-D001 a D019 e o schema foram revisados.
 - **Reordenação não atômica:** as gravações são sequenciais; uma falha deixa a ordem parcial, sem perda de dados.
 - **Troca de slug de produto publicado quebra a URL antiga:** redirects nas Etapas 07/08.
 - **Cache em memória por instância:** em ambiente serverless, cada instância tem o seu. A estratégia de cache distribuído fica para a Etapa 10, junto com o deploy.
-- **Alteração do remoto fora do fluxo de migrations:** já aconteceu uma vez, com origem desconhecida. Mitigações:
-  - migrations novas idempotentes sempre que possível (`docs/CONVENCOES.md`);
-  - comparação do catálogo depois de cada push;
-  - revisão de acessos e tokens (Pendência 7).
+- **Alteração do remoto fora do fluxo de migrations (divergência operacional):** já aconteceu uma vez. Mitigações:
+  - as regras de mudança no banco de `docs/CONVENCOES.md`: só migrations versionadas, nada de SQL estrutural manual e registro obrigatório de execução manual excepcional;
+  - comparação do catálogo depois de cada push.
 - **Duplicação controlada de regras** (pendências de publicação, limites de campo): existem no banco (garantia) e em `src/lib` (mensagem). Os testes de integração verificam os dois lados juntos.
 
 ## Sincronização com ambiente remoto
@@ -196,7 +195,7 @@ O Brain, as decisões MDI-D001 a D019 e o schema foram revisados.
 **Status em 2026-10-31: CONCLUÍDA.**
 - Migration 15 aplicada pelo CLI e registrada.
 - Remoto idêntico ao local.
-- Houve uma **execução manual de origem desconhecida**, detalhada abaixo.
+- Houve uma **execução manual fora do CLI** (divergência operacional), detalhada abaixo.
 
 | Item | Resultado |
 |---|---|
@@ -224,20 +223,25 @@ O Brain, as decisões MDI-D001 a D019 e o schema foram revisados.
 | Storage | Bucket oculto, listagem vazia, upload anônimo 403 pela RLS |
 | Auth | Login por e-mail ativo; cadastro desligado; sem login anônimo |
 
-### Execução manual de origem desconhecida (registrada)
+### Execução manual fora do CLI (divergência operacional registrada)
 
+- **Classificação:** divergência operacional, **não** incidente de segurança.
+  - O responsável informou que só ele tem acesso administrativo ao projeto Supabase.
+  - A execução provavelmente ocorreu durante uma ação dele no Dashboard/SQL Editor.
 - **O que aconteceu:**
   - Às **15:43:28 de 2026-10-31 (Brasília)**, o SQL da migration 15 foi executado no banco remoto como `postgres`, **fora do Supabase CLI**, e o histórico de migrations não registrou a versão.
   - O push do agente antes disso estava bloqueado pela proteção da sessão e não rodou: não há registro dele no banco.
-  - O responsável não soube identificar a origem.
 - **Evidências (somente leitura):**
   - O `pg_stat_statements` mostra as instruções da migration 15 executadas uma vez, nesse horário, e a inserção no histórico com 14 execuções em vez de 15.
   - Os corpos das 7 funções tinham quebras CRLF, que o CLI não produz (os mesmos objetos aplicados pelo CLI saem com LF). Isso é compatível com texto colado, por exemplo no SQL Editor do Dashboard.
   - A lógica, a segurança, os triggers e as permissões eram idênticos ao repositório.
   - A consulta aos logs do projeto pela Management API não retornou eventos para o período, então não foi possível identificar a origem por esse caminho.
 - **Correção:** foi feita pelo fluxo normal, sem SQL manual. A migration ficou idempotente, foi testada no local e reaplicada pelo CLI, o que regularizou o histórico e o texto das funções.
-- **Recomendação ao responsável:**
-  - revisar no Dashboard o histórico do SQL Editor e os membros com acesso ao projeto;
-  - revisar os tokens de acesso da conta, revogando os que não estiverem em uso. Já constam como pendentes desde a Etapa 02: o token antigo do `.env.local` e o token de acesso total.
+- **Por que a idempotência não mascarou drift:** antes de reaplicar, o conteúdo do remoto foi comparado com o repositório, função por função. Era idêntico na lógica, segurança, triggers e permissões; a única diferença era CRLF. Depois do push, `db diff` e a comparação de catálogo confirmaram a igualdade. Esse é o critério das regras de banco: idempotência só quando não esconde divergência.
+- **Regras adotadas a partir deste caso** (`docs/CONVENCOES.md`, decisão do responsável):
+  - mudanças estruturais só por migrations versionadas;
+  - evitar SQL estrutural manual no Dashboard;
+  - execução manual excepcional deve ser registrada;
+  - migrations idempotentes só quando isso não mascarar drift ou inconsistências.
 
 **Servidor de desenvolvimento:** o `next dev` deste projeto já estava rodando na porta 3000, iniciado às 15:34, depois da mudança do `next.config.ts` (14:38). Portanto já usa a configuração nova (Cache Components) e não precisou ser reiniciado. O da porta 3001 não existia mais.
