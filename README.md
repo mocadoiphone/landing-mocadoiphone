@@ -28,8 +28,8 @@ npm run db:reset             # aplica migrations + seed de desenvolvimento
 npm run dev                  # http://localhost:3000 · painel em /admin
 ```
 
-Páginas técnicas do catálogo (Etapa 03, sem design final): `/<categoria>` (ex.: `/iphone`) e `/produto/<slug>`.
-Painel administrativo (Etapa 04): `/admin` → dashboard, produtos, categorias, mídia, contatos, configurações e usuários.
+Site público (Etapa 05): `/` (Home por blocos), `/<categoria>` (ex.: `/iphone`), `/produto/<slug>`, `/ofertas`, `/lancamentos` e `/loja`. Fica com `noindex` até a Etapa 07.
+Painel administrativo: `/admin` → dashboard, Home, produtos, categorias, mídia, contatos, configurações (WhatsApp, loja física, rodapé, mídia) e usuários.
 
 Usuários do seed local: veja o cabeçalho de [`supabase/seed.sql`](supabase/seed.sql).
 
@@ -58,13 +58,13 @@ Usuários do seed local: veja o cabeçalho de [`supabase/seed.sql`](supabase/see
 
 ```txt
 src/
-├── app/          rotas (App Router): página técnica, (site)/[categorySlug], (site)/produto/[slug], /admin/login, admin/(painel)/*
-├── components/   apresentação: admin/ (ui/, forms/, media/, products/, …), catalog/
-├── config/       configuração validada: env.ts (variáveis de ambiente), site.ts
-├── lib/          regras puras: pricing/, availability/, slug/, whatsapp/, media/, catalog/, admin/, forms/, contacts/, auth/
+├── app/          rotas (App Router): (site)/ (Home, categoria, produto, ofertas, lançamentos, loja), /admin/login, admin/(painel)/*
+├── components/   apresentação: layout/, sections/ (blocos da Home), product/, media/, ui/, catalog/, admin/ (ui/, forms/, media/, home/, products/, …)
+├── config/       configuração validada: env.ts (variáveis de ambiente), images.ts (next/image), site.ts
+├── lib/          regras puras: pricing/, availability/, slug/, whatsapp/, media/, catalog/, home/, site/, admin/, forms/, contacts/, auth/
 │                 · supabase/ (clientes browser, server, público sem cookies, proxy)
-├── services/     acesso a dados no servidor: auth/, catalog/ (consultas, núcleo, actions), media/ (envio verificado), admin/
-├── styles/       tokens.css (design tokens provisórios) e globals.css
+├── services/     acesso a dados no servidor: auth/, catalog/, home/, site/, media/ (envio verificado), admin/
+├── styles/       tokens.css (design tokens, identidade oficial pendente) e globals.css
 ├── types/        database.ts (gerado pelo Supabase CLI)
 └── proxy.ts      renovação de sessão do /admin
 supabase/         config.toml · migrations/ · seed.sql (só local) · tests/ (pgTAP)

@@ -71,7 +71,8 @@ export type ProductDetail = ProductCard & {
     videos: MediaView[];
   };
   specs: SpecGroup[];
-  related: { slug: string; name: string } | null;
+  /** Relacionado do painel + mesma família, só publicados (máx. 4). */
+  relatedProducts: ProductCard[];
   /** WhatsApp do produto sem variante específica. */
   whatsappUrl: string | null;
 };

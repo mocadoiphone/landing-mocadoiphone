@@ -1,90 +1,126 @@
-import Link from "next/link";
+import { type Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
 
-import { CatalogLoading } from "@/components/catalog/catalog-loading";
-import { ProductCardItem } from "@/components/catalog/product-card";
+import { Breadcrumb } from "@/components/product/breadcrumb";
+import { EmptyCatalog } from "@/components/product/empty-catalog";
+import { ProductGrid } from "@/components/product/product-grid";
+import { CategoryTiles } from "@/components/sections/category-grid-section";
+import { staticParams } from "@/lib/site/routes";
+import { createSupabasePublicClient } from "@/lib/supabase/public";
+import { listActiveCategorySlugs } from "@/services/catalog/public-queries";
 import { getCategories, getCategoryPage } from "@/services/catalog/queries";
+import { getSiteChrome } from "@/services/site/queries";
 
-type Params = PageProps<"/[categorySlug]">["params"];
+// Página de categoria (Brain §6, §8; MDI-D003): produtos agrupados por família,
+// na ordem do painel. Estática a partir do cache (MDI-D034): slug inexistente
+// ou categoria inativa responde 404 de verdade.
+export const ensureStatic = "navigation";
 
-// Página técnica de categoria (Brain §6, §8; MDI-D003). Design final na Etapa 05.
-// O conteúdo depende do slug e chega por streaming: slug inexistente mostra a
-// página "não encontrada" com noindex (status 404 real fica para as Etapas 05/07).
-export default function CategoryPage({ params }: PageProps<"/[categorySlug]">) {
-  return (
-    <Suspense fallback={<CatalogLoading />}>
-      <CategoryContent params={params} />
-    </Suspense>
-  );
+export async function generateStaticParams() {
+  const slugs = await listActiveCategorySlugs(createSupabasePublicClient());
+  return staticParams("categorySlug", slugs);
 }
 
-async function CategoryContent({ params }: { params: Params }) {
+export async function generateMetadata({
+  params,
+}: PageProps<"/[categorySlug]">): Promise<Metadata> {
+  const { categorySlug } = await params;
+  const page = await getCategoryPage(categorySlug);
+  if (!page) return {};
+  return {
+    title: page.category.name,
+    description: page.category.description ?? undefined,
+  };
+}
+
+export default async function CategoryPage({
+  params,
+}: PageProps<"/[categorySlug]">) {
   const { categorySlug } = await params;
   const page = await getCategoryPage(categorySlug);
   if (!page) notFound();
 
-  const categories = await getCategories();
+  const [categories, chrome] = await Promise.all([
+    getCategories(),
+    getSiteChrome(),
+  ]);
+  const { category, families } = page;
+  const others = categories.filter((item) => item.slug !== category.slug);
 
   return (
-    <main className="mx-auto flex w-full max-w-content flex-col gap-10 px-gutter py-section">
-      <nav
-        aria-label="Navegação estrutural"
-        className="text-caption text-muted"
-      >
-        <Link href="/">Início</Link> /{" "}
-        <span aria-current="page">{page.category.name}</span>
-      </nav>
-
-      <header className="flex flex-col gap-3">
-        <h1 className="text-display-md">{page.category.name}</h1>
-        {page.category.description ? (
-          <p className="text-body text-muted">{page.category.description}</p>
+    <main>
+      <header className="mx-auto flex w-full max-w-wide flex-col gap-6 px-gutter pt-6 pb-section-tight">
+        <Breadcrumb
+          items={[{ label: "Início", href: "/" }, { label: category.name }]}
+        />
+        <div className="flex max-w-narrow flex-col gap-4 pt-6">
+          <h1 className="text-display-lg font-semibold text-balance">
+            {category.name}
+          </h1>
+          {category.description ? (
+            <p className="text-lead text-pretty text-muted">
+              {category.description}
+            </p>
+          ) : null}
+        </div>
+        {families.length > 1 ? (
+          <nav aria-label={`Famílias de ${category.name}`}>
+            <ul className="flex flex-wrap gap-2">
+              {families.map((family) => (
+                <li key={family.id}>
+                  <a
+                    href={`#familia-${family.slug}`}
+                    className="inline-flex min-h-10 items-center rounded-pill border border-border px-4 text-caption font-medium transition-colors duration-200 hover:border-foreground focus-visible:outline-2 focus-visible:outline-ring"
+                  >
+                    {family.name}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
         ) : null}
       </header>
 
-      {page.families.length === 0 ? (
-        <p className="text-body text-muted">
-          Nenhum produto publicado nesta linha ainda.
-        </p>
-      ) : (
-        page.families.map((family) => (
-          <section
-            key={family.id}
-            aria-labelledby={`familia-${family.slug}`}
-            className="flex flex-col gap-4"
-          >
-            <h2
+      <div className="mx-auto flex w-full max-w-wide flex-col gap-section-tight px-gutter pb-section">
+        {families.length === 0 ? (
+          <EmptyCatalog
+            title={`Ainda não há produtos de ${category.name} no site.`}
+            description="Os produtos desta linha estão sendo cadastrados. Fale com a gente para saber o que temos disponível agora."
+            whatsappUrl={chrome.contact.whatsappUrl}
+          />
+        ) : (
+          families.map((family) => (
+            <section
+              key={family.id}
               id={`familia-${family.slug}`}
-              className="text-heading font-semibold"
+              aria-labelledby={`titulo-familia-${family.slug}`}
+              className="flex flex-col gap-6"
             >
-              {family.name}
-            </h2>
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {family.products.map((product) => (
-                <ProductCardItem key={product.id} product={product} />
-              ))}
-            </ul>
-          </section>
-        ))
-      )}
-
-      <nav aria-label="Linhas Apple" className="border-t border-border pt-6">
-        <ul className="flex flex-wrap gap-4 text-caption">
-          {categories.map((category) => (
-            <li key={category.id}>
-              <Link
-                href={`/${category.slug}`}
-                aria-current={
-                  category.slug === page.category.slug ? "page" : undefined
-                }
+              <h2
+                id={`titulo-familia-${family.slug}`}
+                className="text-heading font-semibold"
               >
-                {category.name}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
+                {family.name}
+              </h2>
+              <ProductGrid products={family.products} />
+            </section>
+          ))
+        )}
+      </div>
+
+      {others.length > 0 ? (
+        <section
+          aria-labelledby="outras-linhas"
+          className="border-t border-border py-section-tight"
+        >
+          <div className="mx-auto flex w-full max-w-wide flex-col gap-8 px-gutter">
+            <h2 id="outras-linhas" className="text-heading font-semibold">
+              Outras linhas
+            </h2>
+            <CategoryTiles categories={others} />
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }

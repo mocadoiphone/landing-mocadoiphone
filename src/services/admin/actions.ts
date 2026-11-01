@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin/schemas";
 import { AREA_ROLES } from "@/lib/auth/permissions";
 import { idInput } from "@/lib/catalog/schemas";
+import { footerSettingsInput, storeSettingsInput } from "@/lib/site/settings";
 import { runCatalogAction } from "@/services/catalog/action-runner";
 import { CACHE_TAGS } from "@/services/catalog/tags";
 
@@ -23,13 +24,15 @@ import {
   softDeleteContact,
   updateAdminProfile,
   updateContact,
+  updateFooterSettings,
   updateMediaSettings,
+  updateStoreSettings,
   updateWhatsappSettings,
 } from "./mutations";
 
 /**
  * Server Actions de contatos, configurações e usuários (MDI-D025, MDI-D027).
- * Contato e template do WhatsApp aparecem no site: invalidam a tag `settings`.
+ * Contato, WhatsApp, loja física e rodapé aparecem no site: invalidam a tag `settings`.
  */
 const contacts = {
   roles: AREA_ROLES.contacts,
@@ -106,6 +109,23 @@ export async function updateMediaSettingsAction(input: unknown) {
     schema: mediaSettingsInput,
     input,
     run: updateMediaSettings,
+  });
+}
+
+export async function updateStoreSettingsAction(input: unknown) {
+  return runCatalogAction({
+    ...settings,
+    schema: storeSettingsInput,
+    input,
+    run: updateStoreSettings,
+  });
+}
+export async function updateFooterSettingsAction(input: unknown) {
+  return runCatalogAction({
+    ...settings,
+    schema: footerSettingsInput,
+    input,
+    run: updateFooterSettings,
   });
 }
 

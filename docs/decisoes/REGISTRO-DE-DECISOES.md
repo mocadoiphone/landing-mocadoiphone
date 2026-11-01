@@ -35,6 +35,12 @@
 | MDI-D027 | Administradores sem service_role e contato padrão atômico | Aprovada (Etapa 04) |
 | MDI-D028 | Blocos editoriais do produto adiados para a Etapa 05 | Aprovada (Etapa 04) |
 | MDI-D029 | Playwright antecipado para os fluxos críticos | Aprovada (Etapa 04) |
+| MDI-D030 | Home por blocos: definição dos tipos e área "Home" do painel | Etapa 05 |
+| MDI-D031 | Conteúdo institucional em `site_settings` (loja física, rodapé, atendimento geral) | Etapa 05 |
+| MDI-D032 | Imagens públicas otimizadas pelo next/image, só do bucket do projeto | Etapa 05 |
+| MDI-D033 | Base visual neutra premium (identidade oficial pendente) | Etapa 05 |
+| MDI-D034 | Páginas de produto e categoria estáticas com 404 real (corrige a D020) | Etapa 05 |
+| MDI-D035 | Coleções e blocos editoriais do produto fora da Etapa 05 (ajusta D009, D018 e D028) | Etapa 05 |
 
 ---
 
@@ -708,3 +714,154 @@ Outras regras:
 - Os artefatos (`test-results/`, `playwright-report/`) ficam fora do git.
 
 **Arquivos afetados:** `package.json`, `playwright.config.ts`, `tests/e2e/**`, `supabase/seed.sql`, `.gitignore`, `.prettierignore`.
+
+---
+
+## MDI-D030
+
+**Data:** 2026-11-01
+
+**Decisão:** A Home é montada só pelos blocos de `homepage_sections` (MDI-D009), sem migration nova.
+- **Definição por tipo** (`src/lib/home/blocks.ts`): para cada um dos 11 tipos do Brain §19, os campos que o painel mostra, os obrigatórios e os rótulos dos itens repetidos.
+  - Colunas guardam o que é comum: título, subtítulo, texto, produto, categoria, imagem, vídeo e tema.
+  - `settings_json` guarda o específico: texto de apoio, posição da imagem, origem e quantidade da grade, botões e itens.
+- **Validação:**
+  - na escrita, Zod com regras por tipo (ex.: grade por categoria exige a categoria);
+  - na leitura, modo tolerante: campo inválido é descartado sem derrubar o bloco;
+  - só os campos do tipo são gravados.
+- **Botões sem endereço livre:** o admin escolhe o destino entre produto do bloco, categoria do bloco, WhatsApp, loja física, ofertas e lançamentos. Um destino sem o vínculo necessário some do site.
+- **Renderização:**
+  - bloco sem o essencial não aparece (produto despublicado, categoria inativa, mídia excluída, loja sem endereço);
+  - sem nenhum bloco válido ativo, a Home usa uma composição padrão (linhas Apple, lançamentos, loja).
+- **Grade de produtos:** origem lançamentos, promoções, destaques ou categoria (Brain §7.3), de 3 a 12 itens.
+- **Painel:**
+  - área `home` em `AREA_ROLES` = OWNER, ADMIN e CONTENT_EDITOR, espelhando a RLS de `homepage_sections`;
+  - tela `/admin/home` com ordem, ativar/desativar, edição por tipo, exclusão com confirmação e aviso de vínculo não publicado.
+- **Cache:** tag nova `home`. A Home depende de `home`, `catalog` e `settings`.
+
+**Motivo:** O Brain §18–§19 exige que o admin selecione conteúdo, sem HTML e sem poder quebrar o layout. A tabela da Etapa 02 já tinha tudo o que os blocos precisam.
+
+**Impacto:**
+- Um tipo de bloco novo continua exigindo código e decisão própria.
+- Banners (`/admin/banners`, Brain §6) continuam sendo blocos PROMO_BANNER/FULLSCREEN_MEDIA e são editados em `/admin/home`.
+
+**Arquivos afetados:** `src/lib/home/*`, `src/services/home/*`, `src/components/sections/*`, `src/components/admin/home/*`, `src/app/admin/(painel)/home/`, `src/app/(site)/page.tsx`, `src/lib/auth/permissions.ts`, `src/services/catalog/tags.ts`.
+
+---
+
+## MDI-D031
+
+**Data:** 2026-11-01
+
+**Decisão:**
+- **Chaves usadas:** loja física (`site_settings.store`) e rodapé (`site_settings.footer`), que já eram públicas desde a migration (MDI-D016). Não houve migration.
+- **Loja física:**
+  - campos: nome, apresentação, endereço, bairro, cidade, CEP, até 7 linhas de horário, até 6 fotos da biblioteca (pasta `store`), link do mapa e texto do botão de atendimento;
+  - aparece no bloco STORE, em `/loja` e no rodapé.
+- **Rodapé:**
+  - campos: apresentação, até 6 redes sociais, razão social, CNPJ, aviso legal e copyright (vazio = "© <ano> Moça do iPhone…");
+  - links de navegação e categorias são do sistema, não do painel.
+- **Links externos restritos** (`src/lib/site/links.ts`):
+  - só `https://`, sem usuário, senha ou porta;
+  - só os domínios de cada uso: Google Maps, Apple Maps e Waze no mapa; o domínio próprio de cada rede social;
+  - validados na escrita e de novo na leitura.
+- **Atendimento geral:** mensagem nova `general_message` em `site_settings.whatsapp`, para botões sem produto (cabeçalho, loja, rodapé). Usa texto padrão se vazia e o mesmo contato padrão (MDI-D012).
+- **Permissão:** OWNER e ADMIN, como já define a RLS de `site_settings`.
+- **Correção:** a leitura pública do WhatsApp passou a aceitar `null` nos campos. Antes, salvar a origem vazia invalidava a configuração inteira, e template e origem voltavam ao padrão.
+
+**Motivo:** O Brain §7.7 e §7.8 pedem loja e footer administráveis, sem dado comercial no código, e o §18 proíbe HTML livre.
+
+**Impacto:**
+- Endereço, horários, redes e dados legais mudam pelo painel.
+- As fotos da loja aparecem em "onde é usada" na biblioteca. O banco já impedia excluí-las (referência por JSON, migration 11).
+
+**Arquivos afetados:** `src/lib/site/*`, `src/lib/whatsapp/whatsapp.ts`, `src/services/site/*`, `src/services/admin/{queries,mutations,actions}.ts`, `src/services/catalog/public-queries.ts`, `src/components/admin/settings/*`, `src/components/layout/*`, `src/app/(site)/loja/`.
+
+---
+
+## MDI-D032
+
+**Data:** 2026-11-01
+
+**Decisão:**
+- **Otimização:** as imagens do site público passam pelo otimizador do next/image (`SiteImage`, `ArtDirectedImage`).
+  - `sizes` por layout;
+  - carregamento sob demanda fora da primeira dobra;
+  - `preload` só na imagem principal (LCP);
+  - a imagem mobile do produto usa `<picture>` (art direction do next/image).
+- **Origem permitida:** `images.remotePatterns` aceita **só** o caminho público do bucket `media` do projeto configurado (`src/config/images.ts`). `dangerouslyAllowLocalIP` fica ligado só quando o Supabase é local (desenvolvimento e E2E).
+- **Painel:** continua com `unoptimized` (miniaturas, inclusive de mídia ainda não publicada).
+- **Vídeos:** sem reprodução automática e com `preload="none"`.
+
+**Motivo:** O pedido da Etapa 05 inclui next/image com tamanhos responsivos. O otimizador do Next não exige plano pago no Supabase e reduz o peso das fotos de produto (Brain §27).
+
+**Impacto:** Antecipa parte da estratégia de imagem prevista para a Etapa 07. A Etapa 07 continua responsável por revisar o custo do otimizador na Vercel ou trocá-lo pelo transformador do Supabase.
+
+**Arquivos afetados:** `next.config.ts`, `src/config/images.ts`, `src/components/media/site-image.tsx`.
+
+---
+
+## MDI-D033
+
+**Data:** 2026-11-01
+
+**Decisão:**
+- **Identidade:** sem manual de marca, continua **neutra**, refinada para o site público: monocromática premium (preto, branco, cinzas), botões em pílula, cards em superfície clara e seções claras ou escuras por bloco.
+- **Tokens novos** em `tokens.css`: `text-lead`, `text-eyebrow`, `section-tight`, `header`, `container-text`, `radius-pill` e `ease-premium`. Valores de cor e contraste também foram ajustados.
+- **Movimento:** só CSS (hover, foco, pressão do botão), com `prefers-reduced-motion` já global. Sem GSAP e sem Framer Motion nesta etapa.
+- **Marca:** texto (`siteConfig.name`) no cabeçalho e no rodapé até existir o logo oficial.
+
+**Motivo:** O Brain §30 proíbe inventar identidade definitiva. O pedido da Etapa 05 permite só transições discretas e microinterações simples.
+
+**Impacto:**
+- Cores, fonte e logo oficiais entram trocando `tokens.css` e o arquivo do logo, sem mexer nos componentes.
+- O motion de storytelling fica para a Etapa 06.
+
+**Arquivos afetados:** `src/styles/tokens.css`, `src/styles/globals.css`, `src/components/ui/*`.
+
+---
+
+## MDI-D034
+
+**Data:** 2026-11-01
+
+**Decisão:**
+- **Páginas estáticas:** `/produto/[slug]` e `/[categorySlug]` usam `ensureStatic = "navigation"` e `generateStaticParams` (slugs publicados e categorias ativas). Toda leitura delas é cacheada, e `notFound()` acontece antes de qualquer streaming.
+- **404 real:** produto inexistente, rascunho ou excluído, e categoria inexistente ou inativa, respondem **404 de verdade**. Testado no build de produção e no E2E. Fecha a pendência da MDI-D020.
+- **Catálogo vazio:** sem nada publicado, `generateStaticParams` devolve um parâmetro inválido (`_`), porque o Next exige ao menos um. Essa página responde 404.
+- **Corrige a D020:** o build passa a ler o banco, com a mesma leitura anônima do site, para gerar a Home, o cabeçalho, o rodapé e as páginas listadas. Banco indisponível no build = build falha.
+- **Regra:** `(site)` não pode ter `loading.tsx`, que iniciaria o streaming e faria o status voltar a 200.
+
+**Limitação conhecida:**
+- **Cenário:** alguém abriu o endereço de um produto antes da publicação, e o 404 gerado sob demanda não guarda as tags de cache.
+- **Efeito:** depois de publicar, **a primeira requisição** a esse endereço ainda pode receber o 404, enquanto o Next regera a página em segundo plano. As seguintes respondem 200.
+- **Testado:** `updateTag` e `revalidatePath` não alcançam essa entrada.
+- **Sem a limitação:** as páginas já geradas (200) são atualizadas na hora pelas tags, inclusive ao despublicar (viram 404).
+
+**Motivo:** O pedido da Etapa 05 exigiu investigar o 404. O guia de streaming do Next 16 mostra que o status só pode ser decidido antes de o streaming começar.
+
+**Impacto:** As páginas de produto e categoria são servidas estáticas e atualizadas pelas tags. A estratégia de cache distribuído continua na Etapa 10.
+
+**Arquivos afetados:** `src/app/(site)/produto/[slug]/page.tsx`, `src/app/(site)/[categorySlug]/page.tsx`, `src/app/(site)/not-found.tsx`, `src/lib/site/routes.ts`, `src/services/catalog/public-queries.ts`.
+
+---
+
+## MDI-D035
+
+**Data:** 2026-11-01
+
+**Decisão:**
+- **Coleções** (`collections`, `collection_products`, `homepage_sections.collection_id`) não foram criadas. A grade de produtos usa as vitrines do catálogo (lançamento, promoção, destaque) e a categoria.
+- **Blocos editoriais do produto** (`product_sections`) também não. A página de produto pedida nesta etapa usa descrição, especificações e relacionados.
+- **Ajustes:** D009 (o desenho continua o mesmo), D018 e D028, que previam as duas tabelas para esta etapa.
+
+**Motivo:**
+- O pedido da Etapa 05 manda acrescentar ao modelo só o que a Home e as páginas públicas precisam.
+- Nenhum requisito desta etapa depende de lista curada nem de blocos por produto.
+- Criar as tabelas antes do uso real arrisca retrabalho (o mesmo motivo da D028).
+
+**Impacto:**
+- Nenhuma migration nesta etapa e nenhum push remoto.
+- As duas tabelas entram, com migration e pgTAP, quando uma etapa precisar delas (provavelmente a Etapa 06, com o storytelling por produto).
+
+**Arquivos afetados:** nenhum (decisão de escopo).

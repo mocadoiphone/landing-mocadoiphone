@@ -146,6 +146,9 @@ describe("consultas públicas (seed)", () => {
       template:
         "Olá! Vi no site da Moça do iPhone o {produto} {variante} e gostaria de consultar disponibilidade e valor.",
       origin: "Site",
+      generalMessage:
+        "Olá! Vim pelo site da Moça do iPhone e gostaria de atendimento.",
+      contactPhone: null,
     });
   });
 });
@@ -320,7 +323,7 @@ describe("ciclo do catálogo pelo OWNER (núcleo das Server Actions)", () => {
       supabaseUrl(),
       productSlug,
     );
-    expect(product?.related).toEqual({
+    expect(product?.relatedProducts[0]).toMatchObject({
       slug: "produto-de-teste-publicado",
       name: "Produto de teste publicado",
     });
@@ -336,7 +339,9 @@ describe("ciclo do catálogo pelo OWNER (núcleo das Server Actions)", () => {
       supabaseUrl(),
       productSlug,
     );
-    expect(product?.related).toBeNull();
+    expect(
+      product?.relatedProducts.map((related) => related.slug),
+    ).not.toContain("produto-de-teste");
   });
 
   it("troca a variante padrão de forma atômica", async () => {

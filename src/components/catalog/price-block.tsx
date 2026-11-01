@@ -1,9 +1,31 @@
 import { type PriceView } from "@/lib/pricing/pricing";
 
+type PriceSize = "sm" | "md" | "lg";
+
+const AMOUNT: Record<PriceSize, string> = {
+  sm: "text-body font-semibold",
+  md: "text-heading font-semibold",
+  lg: "text-display-md font-semibold",
+};
+
 /** Preço já calculado por `src/lib/pricing` (Brain §11): o componente só exibe. */
-export function PriceBlock({ price }: { price: PriceView }) {
+export function PriceBlock({
+  price,
+  size = "md",
+}: {
+  price: PriceView;
+  size?: PriceSize;
+}) {
   if (price.kind === "on_request") {
-    return <p className="text-body font-semibold">{price.label}</p>;
+    return (
+      <p
+        className={
+          size === "sm" ? "text-body font-medium" : "text-heading font-semibold"
+        }
+      >
+        {price.label}
+      </p>
+    );
   }
 
   return (
@@ -14,7 +36,7 @@ export function PriceBlock({ price }: { price: PriceView }) {
           de <s>{price.previous}</s>
         </p>
       ) : null}
-      <p className="text-heading font-semibold">
+      <p className={AMOUNT[size]}>
         {price.prefix ? (
           <span className="mr-2 text-caption font-normal text-muted">
             {price.prefix}

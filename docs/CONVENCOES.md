@@ -78,6 +78,22 @@ Nunca escreva preço, telefone, número de WhatsApp ou nome de produto direto no
 - **Mídia:** só pelo envio verificado (`UploadField`/`MediaPicker` → preparar → Storage → finalizar). Não criar atalho que registre caminho sem conferir o arquivo.
 - **Visual:** funcional e consistente, só com tokens. Sem motion no painel. Alvos de toque de 40 px ou mais, foco visível, teclado em tudo.
 
+## Site público (MDI-D030 a D034)
+
+- **Pastas:**
+  - `components/layout/` (cabeçalho, rodapé, menu);
+  - `components/sections/` (um layout por tipo de bloco da Home);
+  - `components/product/` (card, grade, galeria, seletor);
+  - `components/media/` (imagem e vídeo do site);
+  - `components/ui/` (botão-link, seção).
+- **Dados:** as páginas leem só consultas cacheadas (`services/*/queries.ts`). O cabeçalho e o rodapé vêm de `getSiteChrome()`.
+- **Rota dinâmica pública:** `ensureStatic = "navigation"` + `generateStaticParams` (com `staticParams()`), `notFound()` antes de qualquer `Suspense`. **Não criar `loading.tsx` em `(site)`**: ele inicia o streaming e o 404 volta a ser 200.
+- **Imagem:** `SiteImage` com `sizes` do layout; `preload` só na imagem principal da primeira dobra; imagem mobile própria com `ArtDirectedImage`. `MediaImage` (sem otimização) é do painel.
+- **Seções:** `<section data-theme>` com `aria-labelledby` no título. Só a primeira seção pode ter o `h1`.
+- **Links externos:** sempre com `target="_blank"`, `rel="noopener noreferrer"` e aviso "(abre em nova aba)" para leitor de tela.
+- **Bloco novo da Home:** tipo novo exige decisão, definição em `src/lib/home/blocks.ts` (campos, obrigatórios), regra em `render.ts`, componente em `components/sections/` e teste.
+- **Botão do admin:** destino escolhido numa lista (`CTA_TARGETS`), nunca URL digitada. Link externo digitado (mapa, redes) só pelas funções de `src/lib/site/links.ts`.
+
 ## Banco de dados (MDI-D008, D010, D018, D019, D022, D023)
 
 - **Regras de mudança no banco** (decisão do responsável, 2026-10-31):

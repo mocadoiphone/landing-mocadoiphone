@@ -10,7 +10,13 @@ vi.mock("@/services/admin/actions", () => ({
 
 describe("WhatsappSettingsForm", () => {
   it("sem template salvo, pré-visualiza exatamente o exemplo do Brain §13", () => {
-    render(<WhatsappSettingsForm template={null} leadOrigin={null} />);
+    render(
+      <WhatsappSettingsForm
+        template={null}
+        leadOrigin={null}
+        generalMessage={null}
+      />,
+    );
     expect(
       screen.getByText(
         "Olá! Vi no site da Moça do iPhone o iPhone 17 Pro Max 256 GB Preto e gostaria de consultar disponibilidade e valor.",
@@ -23,6 +29,7 @@ describe("WhatsappSettingsForm", () => {
       <WhatsappSettingsForm
         template="Oi! {produto} ({origem})"
         leadOrigin="Site"
+        generalMessage="Quero atendimento ({origem})"
       />,
     );
     expect(screen.getByText("Oi! iPhone 17 Pro Max (Site)")).toBeDefined();
@@ -30,5 +37,22 @@ describe("WhatsappSettingsForm", () => {
       target: { value: "Instagram" },
     });
     expect(screen.getByText("Oi! iPhone 17 Pro Max (Instagram)")).toBeDefined();
+    // A mensagem geral usa a mesma origem.
+    expect(screen.getByText("Quero atendimento (Instagram)")).toBeDefined();
+  });
+
+  it("sem mensagem geral salva, pré-visualiza o texto padrão", () => {
+    render(
+      <WhatsappSettingsForm
+        template={null}
+        leadOrigin={null}
+        generalMessage={null}
+      />,
+    );
+    expect(
+      screen.getByText(
+        "Olá! Vim pelo site da Moça do iPhone e gostaria de atendimento.",
+      ),
+    ).toBeDefined();
   });
 });

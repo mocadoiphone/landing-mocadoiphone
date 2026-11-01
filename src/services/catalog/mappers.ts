@@ -7,6 +7,7 @@ import {
   isSellableAvailability,
   isVisibleAvailability,
 } from "@/lib/availability/availability";
+import { mergeRelatedProducts } from "@/lib/catalog/related";
 import {
   type CategoryPage,
   type CategorySummary,
@@ -89,7 +90,7 @@ export type ProductCardRow = {
 
 export type ProductDetailRow = ProductCardRow & {
   description: string | null;
-  related: { slug: string; name: string } | null;
+  related: ProductCardRow | null;
   specs: {
     group_name: string | null;
     label: string;
@@ -231,6 +232,7 @@ export function toProductDetail(
   supabaseUrl: string,
   row: ProductDetailRow,
   whatsapp: WhatsAppConfig,
+  sameFamily: readonly ProductCardRow[] = [],
 ): ProductDetail {
   const visible = visibleVariants(row.variants);
   const defaultVariant = effectiveDefaultVariant(visible);
@@ -273,7 +275,11 @@ export function toProductDetail(
       videos: mediaBySlot(supabaseUrl, row.media, "VIDEO"),
     },
     specs: groupSpecs(row.specs),
-    related: row.related,
+    relatedProducts: mergeRelatedProducts(
+      row.id,
+      row.related ? toProductCard(supabaseUrl, row.related) : null,
+      sameFamily.map((sibling) => toProductCard(supabaseUrl, sibling)),
+    ),
     whatsappUrl: whatsAppLinkFor(whatsapp, { productName: row.name }),
   };
 }

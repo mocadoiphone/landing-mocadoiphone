@@ -95,7 +95,7 @@ function SpecForm({
   );
 }
 
-/** Aba Conteúdo (Brain §17): especificações. Blocos editoriais entram na Etapa 05 (MDI-D028). */
+/** Aba Conteúdo (Brain §17): especificações. Blocos editoriais do produto adiados (MDI-D035). */
 export function SpecsTab({
   productId,
   specs,
@@ -111,8 +111,8 @@ export function SpecsTab({
   return (
     <div className="flex flex-col gap-6">
       <p className="text-caption text-muted">
-        Benefícios e seções editoriais do produto entram na Etapa 05, junto com
-        o design da página.
+        As especificações aparecem na página do produto. Benefícios e seções
+        editoriais por produto ainda não estão disponíveis.
       </p>
       <ActionMessage result={result} success="Especificações atualizadas." />
       {specs.length === 0 ? (

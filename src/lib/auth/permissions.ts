@@ -18,6 +18,8 @@ export const AREA_ROLES = {
   audit: ["OWNER", "ADMIN"],
   catalog: ["OWNER", "ADMIN", "CATALOG_MANAGER"],
   media: ALL,
+  /** Blocos da Home (RLS de `homepage_sections`: OWNER, ADMIN, CONTENT_EDITOR). */
+  home: ["OWNER", "ADMIN", "CONTENT_EDITOR"],
   contacts: ["OWNER", "ADMIN"],
   settings: ["OWNER", "ADMIN"],
   usersView: ["OWNER", "ADMIN"],

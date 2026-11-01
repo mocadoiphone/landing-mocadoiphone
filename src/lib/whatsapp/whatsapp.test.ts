@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildGeneralWhatsAppMessage,
   buildWhatsAppLink,
   buildWhatsAppMessage,
+  DEFAULT_GENERAL_WHATSAPP_MESSAGE,
   DEFAULT_WHATSAPP_TEMPLATE,
+  generalWhatsAppLink,
   whatsAppLinkFor,
 } from "./whatsapp";
 
@@ -90,6 +93,44 @@ describe("whatsAppLinkFor", () => {
         { phone: null, template: null, origin: null },
         { productName: "iPhone 17" },
       ),
+    ).toBeNull();
+  });
+});
+
+describe("atendimento geral (cabeçalho, loja, rodapé)", () => {
+  it("sem mensagem configurada, usa o texto padrão", () => {
+    expect(buildGeneralWhatsAppMessage(null, "Site")).toBe(
+      DEFAULT_GENERAL_WHATSAPP_MESSAGE,
+    );
+  });
+
+  it("aplica a origem e descarta marcadores de produto", () => {
+    expect(
+      buildGeneralWhatsAppMessage(
+        "Olá! Quero atendimento {produto} {variante} ({origem}).",
+        "Instagram",
+      ),
+    ).toBe("Olá! Quero atendimento (Instagram).");
+  });
+
+  it("monta o link com o contato padrão e codifica acentos, & e emoji", () => {
+    const link = generalWhatsAppLink({
+      phone: "5511999999999",
+      template: null,
+      origin: null,
+      generalMessage: "Olá & bom dia 😀",
+    });
+    expect(link).toBe(
+      "https://wa.me/5511999999999?text=Ol%C3%A1%20%26%20bom%20dia%20%F0%9F%98%80",
+    );
+    expect(decodeURIComponent(link?.split("text=")[1] ?? "")).toBe(
+      "Olá & bom dia 😀",
+    );
+  });
+
+  it("sem contato padrão (fallback), não há link", () => {
+    expect(
+      generalWhatsAppLink({ phone: null, template: null, origin: null }),
     ).toBeNull();
   });
 });

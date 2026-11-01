@@ -1,26 +1,24 @@
 import { type Metadata } from "next";
-import Link from "next/link";
 
-// Páginas técnicas da Etapa 03 (MDI-D020): sem design final e fora dos buscadores
-// até a Etapa 07 (SEO). O layout não consulta dados, para o build não depender do banco.
+import { SiteFooter } from "@/components/layout/site-footer";
+import { SiteHeader } from "@/components/layout/site-header";
+import { getSiteChrome } from "@/services/site/queries";
+
+// Site público (Etapa 05). Fica fora dos buscadores até a Etapa 07 (SEO) e o
+// go-live (Etapa 10). Cabeçalho e rodapé vêm de uma consulta cacheada (MDI-D031).
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function SiteLayout({ children }: LayoutProps<"/">) {
+export default async function SiteLayout({ children }: LayoutProps<"/">) {
+  const chrome = await getSiteChrome();
   return (
     <>
-      <header className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-content items-center px-gutter py-4">
-          <Link
-            href="/"
-            className="text-body font-semibold focus-visible:outline-2 focus-visible:outline-ring"
-          >
-            Moça do iPhone
-          </Link>
-        </div>
-      </header>
-      {children}
+      <SiteHeader chrome={chrome} />
+      <div id="conteudo" tabIndex={-1} className="outline-none">
+        {children}
+      </div>
+      <SiteFooter chrome={chrome} />
     </>
   );
 }

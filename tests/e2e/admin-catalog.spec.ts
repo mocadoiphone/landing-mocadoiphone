@@ -100,6 +100,10 @@ test("OWNER cadastra, publica, edita e despublica um produto sem tocar em códig
     page.getByRole("img", { name: `${productName} de frente` }).first(),
   ).toBeVisible();
 
+  // Antes de publicar, a página pública responde 404 de verdade (MDI-D034).
+  const draftResponse = await page.request.get(`/produto/${productSlug}`);
+  expect(draftResponse.status()).toBe(404);
+
   // Sem pendências: publicar.
   await expect(
     publication.getByText("Pronto para publicar: nenhuma pendência."),
@@ -108,7 +112,19 @@ test("OWNER cadastra, publica, edita e despublica um produto sem tocar em códig
   await expect(publication.getByText("Aparece no site.")).toBeVisible();
 
   // Página pública mostra preço, parcelamento, disponibilidade e WhatsApp.
-  await page.goto(`/produto/${productSlug}`);
+  // O 404 visto antes da publicação não guarda tags de cache: a primeira
+  // requisição pode ainda recebê-lo enquanto o Next regera a página em segundo
+  // plano (MDI-D034). Em seguida a página responde 200.
+  await expect
+    .poll(
+      async () => (await page.request.get(`/produto/${productSlug}`)).status(),
+      {
+        timeout: 15_000,
+      },
+    )
+    .toBe(200);
+  const publishedResponse = await page.goto(`/produto/${productSlug}`);
+  expect(publishedResponse?.status()).toBe(200);
   await expect(
     page.getByRole("heading", { level: 1, name: productName }),
   ).toBeVisible();
@@ -138,7 +154,8 @@ test("OWNER cadastra, publica, edita e despublica um produto sem tocar em códig
     .getByRole("button", { name: "Despublicar" })
     .click();
   await expect(publication.getByText("Não aparece no site.")).toBeVisible();
-  await page.goto(`/produto/${productSlug}`);
+  const unpublishedResponse = await page.goto(`/produto/${productSlug}`);
+  expect(unpublishedResponse?.status()).toBe(404);
   await expect(
     page.getByRole("heading", { name: "Página não encontrada" }),
   ).toBeVisible();

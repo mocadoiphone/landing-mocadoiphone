@@ -12,6 +12,12 @@ import {
 import { type CatalogResult, notFound, success } from "@/lib/catalog/result";
 import { type IdInput } from "@/lib/catalog/schemas";
 import {
+  type FooterSettingsInput,
+  type StoreSettingsInput,
+  toFooterJson,
+  toStoreJson,
+} from "@/lib/site/settings";
+import {
   applyReorder,
   type CatalogClient,
   dbFailure,
@@ -160,6 +166,7 @@ export async function updateWhatsappSettings(
         value_json: {
           message_template: input.messageTemplate,
           lead_origin: input.leadOrigin ?? null,
+          general_message: input.generalMessage ?? null,
         },
       },
       { onConflict: "key" },
@@ -181,6 +188,40 @@ export async function updateMediaSettings(
         key: "media",
         value_json: { video_upload_enabled: input.videoUploadEnabled },
       },
+      { onConflict: "key" },
+    )
+    .select("key")
+    .single();
+  if (error) return dbFailure(error);
+  return success(data);
+}
+
+/** Loja física (Brain §7.7; MDI-D031). Pública por definição da migration (MDI-D016). */
+export async function updateStoreSettings(
+  client: CatalogClient,
+  input: StoreSettingsInput,
+): Promise<CatalogResult<{ key: string }>> {
+  const { data, error } = await client
+    .from("site_settings")
+    .upsert(
+      { key: "store", value_json: toStoreJson(input) },
+      { onConflict: "key" },
+    )
+    .select("key")
+    .single();
+  if (error) return dbFailure(error);
+  return success(data);
+}
+
+/** Rodapé (Brain §7.8; MDI-D031). */
+export async function updateFooterSettings(
+  client: CatalogClient,
+  input: FooterSettingsInput,
+): Promise<CatalogResult<{ key: string }>> {
+  const { data, error } = await client
+    .from("site_settings")
+    .upsert(
+      { key: "footer", value_json: toFooterJson(input) },
       { onConflict: "key" },
     )
     .select("key")

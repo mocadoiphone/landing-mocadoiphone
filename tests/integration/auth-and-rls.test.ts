@@ -42,7 +42,11 @@ describe("API pública (anônimo)", () => {
       .select("key")
       .order("key");
 
-    expect(data?.map((setting) => setting.key)).toEqual(["whatsapp"]);
+    expect(data?.map((setting) => setting.key)).toEqual([
+      "footer",
+      "store",
+      "whatsapp",
+    ]);
   });
 
   it("não escreve", async () => {

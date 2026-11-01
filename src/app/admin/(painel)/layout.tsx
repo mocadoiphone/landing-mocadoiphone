@@ -16,6 +16,7 @@ export const instant = false;
 
 const NAV_ITEMS: { href: Route; label: string; area: AdminArea }[] = [
   { href: "/admin/dashboard", label: "Dashboard", area: "dashboard" },
+  { href: "/admin/home", label: "Home", area: "home" },
   { href: "/admin/produtos", label: "Produtos", area: "catalog" },
   { href: "/admin/categorias", label: "Categorias", area: "catalog" },
   { href: "/admin/midia", label: "Mídia", area: "media" },

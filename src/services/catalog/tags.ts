@@ -5,6 +5,8 @@
 export const CACHE_TAGS = {
   /** Categorias, famílias, produtos, variantes, mídia e especificações. */
   catalog: "catalog",
-  /** Contato padrão e configurações públicas (WhatsApp). */
+  /** Blocos da Home. */
+  home: "home",
+  /** Contato padrão e configurações públicas (WhatsApp, loja física, rodapé). */
   settings: "settings",
 } as const;

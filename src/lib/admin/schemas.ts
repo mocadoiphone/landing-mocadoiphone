@@ -67,6 +67,7 @@ export const whatsappSettingsInput = z.object({
     "A mensagem precisa ter o marcador {produto} para citar o produto (Brain §13).",
   ),
   leadOrigin: optionalText(60),
+  generalMessage: optionalText(300),
 });
 
 export const mediaSettingsInput = z.object({

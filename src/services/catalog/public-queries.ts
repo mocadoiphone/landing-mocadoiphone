@@ -9,6 +9,7 @@ import {
   type ProductDetail,
   type ProductShowcase,
 } from "@/lib/catalog/types";
+import { RELATED_PRODUCTS_MAX } from "@/lib/catalog/related";
 import { type WhatsAppConfig } from "@/lib/whatsapp/whatsapp";
 
 import {
@@ -25,13 +26,13 @@ import { type CatalogClient } from "./mutations/shared";
  * integração. Sempre usar o cliente PÚBLICO: o filtro do que é publicado é da RLS.
  */
 
-const MEDIA_ASSET = "storage_path, alt_text, width, height, kind";
+export const MEDIA_ASSET = "storage_path, alt_text, width, height, kind";
 const VARIANT_FIELDS =
   "id, sku, storage, color_name, color_hex, sort_order, is_default, availability, price_cash, price_old, price_installment, installments, installment_text, price_on_request";
 
-const PRODUCT_CARD_SELECT = `id, slug, name, badge, short_description, is_launch, is_promotion, is_featured, category:categories(slug, name), family:product_families(id, slug, name, sort_order), variants:product_variants(${VARIANT_FIELDS}), media:product_media(slot, variant_id, alt_text, sort_order, asset:media_assets(${MEDIA_ASSET}))`;
+export const PRODUCT_CARD_SELECT = `id, slug, name, badge, short_description, is_launch, is_promotion, is_featured, category:categories(slug, name), family:product_families(id, slug, name, sort_order), variants:product_variants(${VARIANT_FIELDS}), media:product_media(slot, variant_id, alt_text, sort_order, asset:media_assets(${MEDIA_ASSET}))`;
 
-const PRODUCT_DETAIL_SELECT = `${PRODUCT_CARD_SELECT}, description, related:related_product_id(slug, name), specs:product_specs(group_name, label, value, sort_order)`;
+const PRODUCT_DETAIL_SELECT = `${PRODUCT_CARD_SELECT}, description, related:related_product_id(${PRODUCT_CARD_SELECT}), specs:product_specs(group_name, label, value, sort_order)`;
 
 const SHOWCASE_COLUMNS = {
   launch: "is_launch",
@@ -39,10 +40,18 @@ const SHOWCASE_COLUMNS = {
   featured: "is_featured",
 } as const satisfies Record<ProductShowcase, string>;
 
+// O painel grava `null` em campo vazio: `nullish`, para um campo vazio não
+// invalidar a configuração inteira.
 const whatsappSettingsSchema = z.object({
-  message_template: z.string().optional(),
-  lead_origin: z.string().optional(),
+  message_template: z.string().nullish(),
+  lead_origin: z.string().nullish(),
+  general_message: z.string().nullish(),
 });
+
+/** Configuração do WhatsApp + telefone do contato padrão (rodapé, loja). */
+export type PublicWhatsAppConfig = WhatsAppConfig & {
+  contactPhone: string | null;
+};
 
 /** Falha de leitura vira exceção: a página mostra o estado de erro e nada é cacheado. */
 function fail(context: string, cause: unknown): never {
@@ -101,7 +110,26 @@ export async function getPublicProduct(
   ]);
   if (product.error) fail("produto", product.error);
   if (!product.data) return null;
-  return toProductDetail(supabaseUrl, product.data, whatsapp);
+
+  const familyId = product.data.family?.id;
+  const siblings = familyId
+    ? await client
+        .from("products")
+        .select(PRODUCT_CARD_SELECT)
+        .eq("family_id", familyId)
+        .neq("id", product.data.id)
+        .order("sort_order")
+        .order("name")
+        .limit(RELATED_PRODUCTS_MAX)
+    : null;
+  if (siblings?.error) fail("produtos da família", siblings.error);
+
+  return toProductDetail(
+    supabaseUrl,
+    product.data,
+    whatsapp,
+    siblings?.data ?? [],
+  );
 }
 
 /** Vitrines: lançamentos (§7.3), promoções (/ofertas) e destaques. */
@@ -125,11 +153,11 @@ export async function listPublicShowcase(
 /** Contato padrão + template da mensagem (MDI-D012). */
 export async function getPublicWhatsAppConfig(
   client: CatalogClient,
-): Promise<WhatsAppConfig> {
+): Promise<PublicWhatsAppConfig> {
   const [contact, setting] = await Promise.all([
     client
       .from("contacts")
-      .select("whatsapp")
+      .select("whatsapp, phone")
       .eq("is_default", true)
       .maybeSingle(),
     client
@@ -146,5 +174,27 @@ export async function getPublicWhatsAppConfig(
     phone: contact.data?.whatsapp ?? null,
     template: parsed.success ? (parsed.data.message_template ?? null) : null,
     origin: parsed.success ? (parsed.data.lead_origin ?? null) : null,
+    generalMessage: parsed.success
+      ? (parsed.data.general_message ?? null)
+      : null,
+    contactPhone: contact.data?.phone ?? null,
   };
+}
+
+/** Slugs publicados, para pré-gerar as páginas no build (MDI-D034). */
+export async function listPublishedProductSlugs(
+  client: CatalogClient,
+): Promise<string[]> {
+  const { data, error } = await client.from("products").select("slug");
+  if (error) fail("slugs de produto", error);
+  return data.map((row) => row.slug);
+}
+
+/** Slugs das categorias ativas, para pré-gerar as páginas no build (MDI-D034). */
+export async function listActiveCategorySlugs(
+  client: CatalogClient,
+): Promise<string[]> {
+  const { data, error } = await client.from("categories").select("slug");
+  if (error) fail("slugs de categoria", error);
+  return data.map((row) => row.slug);
 }

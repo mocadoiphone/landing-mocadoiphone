@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 // Valida as variáveis de ambiente ao iniciar `next dev` / `next build` (falha cedo se inválidas).
-import "./src/config/env";
+import { publicEnv } from "./src/config/env";
+import { supabaseImageConfig } from "./src/config/images";
 
 // Cabeçalhos de segurança básicos. A CSP completa fica para a Etapa 09 (Segurança e QA).
 const securityHeaders = [
@@ -21,6 +22,8 @@ const nextConfig: NextConfig = {
   // Modelo de cache do Next 16 (MDI-D020): `use cache` + tags nas consultas públicas.
   cacheComponents: true,
   partialPrefetching: true,
+  // Imagens públicas otimizadas pelo next/image, só do bucket do projeto (MDI-D032).
+  images: supabaseImageConfig(publicEnv.NEXT_PUBLIC_SUPABASE_URL),
   turbopack: {
     rules: {
       "*.css": {

@@ -15,7 +15,14 @@ import {
   getPublicationIssues,
   type PublicationIssue,
 } from "@/lib/catalog/publication";
+import { BLOCK_DEFINITIONS } from "@/lib/home/blocks";
 import { type MediaKind } from "@/lib/media/media";
+import {
+  type FooterSettings,
+  parseFooterSettings,
+  parseStoreSettings,
+  type StoreSettings,
+} from "@/lib/site/settings";
 import { type CatalogClient } from "@/services/catalog/mutations/shared";
 import { type Database } from "@/types/database";
 
@@ -472,7 +479,7 @@ export type MediaLibraryItem = AdminMedia & {
 export async function listMediaLibrary(
   client: CatalogClient,
 ): Promise<MediaLibraryItem[]> {
-  const [assets, productMedia, categories, ogImages, contacts] =
+  const [assets, productMedia, categories, ogImages, contacts, blocks, store] =
     await Promise.all([
       client
         .from("media_assets")
@@ -495,8 +502,24 @@ export async function listMediaLibrary(
         .from("contacts")
         .select("id, name, avatar_asset_id")
         .not("avatar_asset_id", "is", null),
+      client
+        .from("homepage_sections")
+        .select("type, title, media_asset_id, video_asset_id"),
+      client
+        .from("site_settings")
+        .select("value_json")
+        .eq("key", "store")
+        .maybeSingle(),
     ]);
-  for (const result of [assets, productMedia, categories, ogImages, contacts]) {
+  for (const result of [
+    assets,
+    productMedia,
+    categories,
+    ogImages,
+    contacts,
+    blocks,
+    store,
+  ]) {
     if (result.error) fail("a biblioteca de mídia", result.error);
   }
 
@@ -530,6 +553,17 @@ export async function listMediaLibrary(
       label: `Contato: ${contact.name}`,
       href: "/admin/contatos",
     });
+  }
+  for (const block of blocks.data ?? []) {
+    const usage = {
+      label: `Home: ${block.title ?? BLOCK_DEFINITIONS[block.type].label}`,
+      href: "/admin/home",
+    };
+    add(block.media_asset_id, usage);
+    add(block.video_asset_id, usage);
+  }
+  for (const photoId of parseStoreSettings(store.data?.value_json).photoIds) {
+    add(photoId, { label: "Loja física", href: "/admin/configuracoes" });
   }
 
   return (assets.data ?? []).map((asset) => ({
@@ -584,8 +618,14 @@ export async function listAdminContacts(
 }
 
 export type AdminSettings = {
-  whatsapp: { messageTemplate: string | null; leadOrigin: string | null };
+  whatsapp: {
+    messageTemplate: string | null;
+    leadOrigin: string | null;
+    generalMessage: string | null;
+  };
   media: { videoUploadEnabled: boolean };
+  store: StoreSettings;
+  footer: FooterSettings;
 };
 
 function stringField(value: unknown, key: string): string | null {
@@ -601,7 +641,7 @@ export async function getAdminSettings(
   const { data, error } = await client
     .from("site_settings")
     .select("key, value_json")
-    .in("key", ["whatsapp", "media"]);
+    .in("key", ["whatsapp", "media", "store", "footer"]);
   if (error) fail("as configurações", error);
   const value = (key: string) =>
     data.find((row) => row.key === key)?.value_json;
@@ -610,6 +650,7 @@ export async function getAdminSettings(
     whatsapp: {
       messageTemplate: stringField(value("whatsapp"), "message_template"),
       leadOrigin: stringField(value("whatsapp"), "lead_origin"),
+      generalMessage: stringField(value("whatsapp"), "general_message"),
     },
     media: {
       videoUploadEnabled:
@@ -618,6 +659,8 @@ export async function getAdminSettings(
         !Array.isArray(media) &&
         media.video_upload_enabled === true,
     },
+    store: parseStoreSettings(value("store")),
+    footer: parseFooterSettings(value("footer")),
   };
 }
 

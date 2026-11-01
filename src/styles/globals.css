@@ -5,6 +5,8 @@
   html {
     -webkit-text-size-adjust: 100%;
     font-family: var(--font-sans);
+    /* Âncoras não ficam escondidas atrás do cabeçalho fixo. */
+    scroll-padding-top: calc(var(--spacing-header) + 1rem);
   }
 
   /* Cada contexto de tema (raiz ou seção com data-theme) pinta o próprio fundo e texto.
@@ -19,6 +21,19 @@
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* No celular, a barra fixa de compra (página de produto) não cobre o fim do rodapé. */
+@media (max-width: 767px) {
+  body:has([data-sticky-cta]) footer {
+    padding-bottom: 5rem;
   }
 }
 

@@ -3,7 +3,9 @@
 import { useState } from "react";
 
 import {
+  buildGeneralWhatsAppMessage,
   buildWhatsAppMessage,
+  DEFAULT_GENERAL_WHATSAPP_MESSAGE,
   DEFAULT_WHATSAPP_TEMPLATE,
 } from "@/lib/whatsapp/whatsapp";
 import {
@@ -20,19 +22,24 @@ import { CheckboxField, TextAreaField, TextField } from "../ui/fields";
 export function WhatsappSettingsForm({
   template,
   leadOrigin,
+  generalMessage,
 }: {
   template: string | null;
   leadOrigin: string | null;
+  generalMessage: string | null;
 }) {
   const [message, setMessage] = useState(template ?? DEFAULT_WHATSAPP_TEMPLATE);
   const [origin, setOrigin] = useState(leadOrigin ?? "");
+  const [general, setGeneral] = useState(generalMessage ?? "");
   const { state, formAction, pending, errors } = useActionForm(
     updateWhatsappSettingsAction,
     {
       messageTemplate: "text",
       leadOrigin: "text",
+      generalMessage: "text",
     },
   );
+  const generalPreview = buildGeneralWhatsAppMessage(general, origin || null);
   const preview = buildWhatsAppMessage(message, {
     productName: "iPhone 17 Pro Max",
     variantLabel: "256 GB Preto",
@@ -69,6 +76,25 @@ export function WhatsappSettingsForm({
           Pré-visualização (exemplo: iPhone 17 Pro Max, 256 GB Preto)
         </p>
         <p className="text-body">{preview}</p>
+      </div>
+      <TextAreaField
+        label="Mensagem do atendimento geral"
+        name="generalMessage"
+        maxLength={300}
+        rows={2}
+        value={general}
+        onChange={(event) => setGeneral(event.target.value)}
+        hint={`Botões sem produto (cabeçalho, loja, rodapé). Vazio = "${DEFAULT_GENERAL_WHATSAPP_MESSAGE}"`}
+        errors={errors("generalMessage")}
+      />
+      <div
+        className="flex flex-col gap-1 rounded-card bg-surface p-4"
+        aria-live="polite"
+      >
+        <p className="text-caption text-muted">
+          Pré-visualização do atendimento geral
+        </p>
+        <p className="text-body">{generalPreview}</p>
       </div>
       <ActionMessage result={state} success="Mensagem do WhatsApp salva." />
       <Button

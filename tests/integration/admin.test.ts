@@ -146,6 +146,8 @@ describe("contatos e configurações (Brain §13, §14)", () => {
     await updateWhatsappSettings(owner, {
       messageTemplate: SEED_TEMPLATE,
       leadOrigin: "Site",
+      generalMessage:
+        "Olá! Vim pelo site da Moça do iPhone e gostaria de atendimento.",
     });
   });
 
@@ -204,6 +206,20 @@ describe("contatos e configurações (Brain §13, §14)", () => {
     expect((await getPublicWhatsAppConfig(publicClient())).template).toBe(
       "Quero o {produto} {variante} ({origem})",
     );
+  });
+
+  it("campo vazio salvo pelo painel não invalida a configuração pública", async () => {
+    expectOk(
+      await updateWhatsappSettings(owner, {
+        messageTemplate: "Quero o {produto}",
+        leadOrigin: null,
+        generalMessage: null,
+      }),
+    );
+    const config = await getPublicWhatsAppConfig(publicClient());
+    expect(config.template).toBe("Quero o {produto}");
+    expect(config.origin).toBeNull();
+    expect(config.generalMessage).toBeNull();
   });
 });
 
