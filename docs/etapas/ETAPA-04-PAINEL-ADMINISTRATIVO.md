@@ -1,6 +1,6 @@
 # ETAPA 04 — Painel Administrativo
 
-> Data: 2026-11-01 · Papéis: `engenheiro-software.md` (plano), `ui-ux-motion.md` (interface do painel), `desenvolvedor.md`, `modelagem-dados.md`, `seguranca.md`, `qa.md` · Plano aprovado pelo responsável, com as decisões MDI-D025 a D029 validadas antes da implementação.
+> Data: 2026-11-01 · Papéis: `engenheiro-software.md` (plano), `ui-ux-motion.md` (interface do painel), `desenvolvedor.md`, `modelagem-dados.md`, `seguranca.md`, `qa.md` · Plano aprovado pelo responsável, com as decisões MDI-D025 a D029 validadas antes da implementação · **Etapa aprovada e encerrada pelo responsável em 2026-11-01, após a sincronização remota.**
 
 ## Objetivo
 
@@ -147,7 +147,7 @@ A Etapa 03 já havia provado que a página vem do cache: um `UPDATE` direto no b
 
 ## Pendências
 
-1. **Aplicar a migration 16 no remoto:** aguardando autorização explícita do responsável (seção abaixo).
+1. ~~Aplicar a migration 16 no remoto~~: concluído em 2026-11-01 (seção abaixo).
 2. **Limpeza de arquivos órfãos no Storage:** envio abandonado entre o envio e a conferência. Etapa 09.
 3. **Blocos editoriais do produto, Home, banners, coleções e configurações de loja/rodapé:** Etapa 05.
 4. **SMTP próprio:** sem ele, não há recuperação de senha por e-mail para outros administradores. O OWNER redefine pelo Dashboard. Ligado ao e-mail genérico do OWNER (Etapa 02).
@@ -166,4 +166,32 @@ A Etapa 03 já havia provado que a página vem do cache: um `UPDATE` direto no b
 
 ## Sincronização com ambiente remoto
 
-**Pendente:** a migration 16 só será aplicada após autorização explícita do responsável.
+**Status em 2026-11-01: CONCLUÍDA.**
+- A migration 16 foi aplicada pelo CLI depois da autorização explícita do responsável.
+- Remoto idêntico ao local.
+- Nenhuma execução manual.
+
+| Item | Resultado |
+|---|---|
+| Conferência antes do push (somente leitura) | ✅ `landing-mocadoiphone` (ref `dels…psvl`), produção, `sa-east-1`, Postgres 17.11; 15 aplicadas, 1 pendente; **sem drift**: comparação de catálogo igual ao estado das 15 migrations e nenhuma das funções novas existia no remoto; dry-run listando só a migration 16 |
+| `db push` | ✅ "Applying migration 20261101001906_admin_panel.sql… Finished" |
+| Migrations | ✅ **16/16** sincronizadas |
+| `db diff --linked` (`public`, `app`) | ✅ "No schema changes found" |
+| Comparação de schema local × remoto | ✅ 509 itens idênticos, inclusive o corpo das três funções novas. Única diferença: `public.rls_auto_enable`, da plataforma (aceita na Etapa 02) |
+| RLS e Storage | ✅ Inalterados: 38 policies em `public`, 4 no Storage, bucket `media`, 12 tabelas, todos iguais ao local |
+| Definição das funções | ✅ `list_admin_users` e `grant_admin_profile`: `SECURITY DEFINER`; `set_default_contact`: `SECURITY INVOKER`; as três com `search_path=""` e `EXECUTE` só para `authenticated` (e o dono `postgres`) |
+| Anônimo pela API | ✅ As três RPCs devolvem 401 / `42501` "permission denied for function" |
+| Papéis (simulados no remoto, em transação com `rollback`, sem gravar nada) | ✅ Ver a tabela abaixo |
+| Estado do remoto depois das checagens | ✅ Preservado: 1 perfil, 0 contatos, 1 registro de auditoria (os mesmos de antes) |
+
+**Papéis simulados no remoto:**
+
+| Papel | `list_admin_users` | `grant_admin_profile` | `set_default_contact` |
+|---|---|---|---|
+| Autenticado sem perfil | 42501 "Sem permissão para listar administradores." | 42501 "Só o proprietário (OWNER)…" | P0001 (não enxerga contato para tornar padrão) |
+| OWNER | 1 administrador listado | Passa da checagem de papel; P0001 "Não existe login…", para um e-mail inexistente de propósito (nada gravado) | P0001 para id inexistente: o remoto não tem contatos |
+
+**Limites da validação remota:**
+- Não há administradores ADMIN, CATALOG_MANAGER ou CONTENT_EDITOR no remoto, nem contatos.
+- O caso positivo de `set_default_contact` e os demais papéis exigiriam gravar dados de produção, então não foram feitos.
+- Eles estão cobertos no local pela suíte `09_admin_panel` (20 testes) e pela integração. O corpo das funções no remoto é idêntico ao local (comparação de catálogo).
