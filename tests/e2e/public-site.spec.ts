@@ -86,9 +86,89 @@ test("movimento reduzido remove scrub, parallax e pinning", async ({
     "reduced",
   );
   await expect(page.locator(".pin-spacer")).toHaveCount(0);
+  await page.evaluate(() => window.scrollTo(0, 900));
+  await expect(page.getByRole("banner")).not.toHaveAttribute(
+    "data-scrolled",
+    "true",
+  );
   await expect(
     page.getByRole("link", { name: /Falar no WhatsApp/ }).first(),
   ).toBeVisible();
+});
+
+test("SEO técnico: metadata, canonical, JSON-LD, robots e sitemap", async ({
+  page,
+  request,
+}) => {
+  const response = await page.goto("/produto/produto-com-variantes");
+  expect(response?.status()).toBe(200);
+  expect(response?.headers()["content-security-policy"]).toContain(
+    "frame-ancestors 'none'",
+  );
+
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    "https://mocadoiphone.com/produto/produto-com-variantes",
+  );
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+    "content",
+    "Produto com variantes",
+  );
+  await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+    "content",
+    "summary_large_image",
+  );
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+    "content",
+    /noindex/,
+  );
+
+  const jsonLd = await page
+    .locator('script[type="application/ld+json"]')
+    .evaluateAll((scripts) =>
+      scripts.map((script) => JSON.parse(script.textContent ?? "{}")),
+    );
+  const product = jsonLd.find((item) => item["@type"] === "Product");
+  const breadcrumb = jsonLd.find((item) => item["@type"] === "BreadcrumbList");
+  expect(product).toMatchObject({
+    name: "Produto com variantes",
+    offers: expect.arrayContaining([
+      expect.objectContaining({
+        priceCurrency: "BRL",
+        availability: "https://schema.org/InStock",
+      }),
+    ]),
+  });
+  expect(product).not.toHaveProperty("aggregateRating");
+  expect(breadcrumb?.itemListElement).toHaveLength(3);
+
+  const robots = await request.get("/robots.txt");
+  expect(robots.status()).toBe(200);
+  expect(await robots.text()).toContain("Disallow: /");
+
+  const sitemap = await request.get("/sitemap.xml");
+  expect(sitemap.status()).toBe(200);
+  const sitemapText = await sitemap.text();
+  expect(sitemapText).toContain("https://mocadoiphone.com/mac");
+  expect(sitemapText).toContain(
+    "https://mocadoiphone.com/produto/produto-com-variantes",
+  );
+  expect(sitemapText).not.toContain("/admin");
+  expect(sitemapText).not.toContain("produto-de-teste</loc>");
+});
+
+test("redirects antigos usam 301 e preservam o destino canônico", async ({
+  request,
+}) => {
+  for (const [source, destination] of [
+    ["/macbook", "/mac"],
+    ["/applewatch", "/apple-watch"],
+    ["/apple-vision-pro", "/vision-pro"],
+  ] as const) {
+    const response = await request.get(source, { maxRedirects: 0 });
+    expect(response.status(), source).toBe(301);
+    expect(response.headers().location).toBe(destination);
+  }
 });
 
 test("categoria agrupa por família e trata categoria vazia", async ({

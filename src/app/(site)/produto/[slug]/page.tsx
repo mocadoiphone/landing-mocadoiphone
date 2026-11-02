@@ -4,9 +4,16 @@ import { notFound } from "next/navigation";
 import { SpecList } from "@/components/catalog/spec-list";
 import { Breadcrumb } from "@/components/product/breadcrumb";
 import { ProductConfigurator } from "@/components/product/product-configurator";
+import { JsonLd } from "@/components/seo/json-ld";
 import { ProductRail } from "@/components/sections/product-grid-section";
 import { BlockText } from "@/components/sections/block-parts";
-import { categoryPath, staticParams } from "@/lib/site/routes";
+import { siteConfig } from "@/config/site";
+import { createPageMetadata, resolveCanonicalUrl } from "@/lib/seo/metadata";
+import {
+  productBreadcrumbJsonLd,
+  productJsonLd,
+} from "@/lib/seo/structured-data";
+import { categoryPath, productPath, staticParams } from "@/lib/site/routes";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { listPublishedProductSlugs } from "@/services/catalog/public-queries";
 import { getProduct } from "@/services/catalog/queries";
@@ -27,10 +34,15 @@ export async function generateMetadata({
   const { slug } = await params;
   const product = await getProduct(slug);
   if (!product) return {};
-  return {
-    title: product.name,
-    description: product.shortDescription ?? undefined,
-  };
+  return createPageMetadata({
+    title: product.seo.title,
+    description: product.seo.description,
+    path: productPath(product.slug),
+    siteName: siteConfig.name,
+    siteUrl: siteConfig.url,
+    canonicalUrl: product.seo.canonicalUrl,
+    image: product.seo.image,
+  });
 }
 
 export default async function ProductPage({
@@ -39,9 +51,16 @@ export default async function ProductPage({
   const { slug } = await params;
   const product = await getProduct(slug);
   if (!product) notFound();
+  const canonicalUrl = resolveCanonicalUrl(
+    product.seo.canonicalUrl,
+    productPath(product.slug),
+    siteConfig.url,
+  );
 
   return (
     <main>
+      <JsonLd value={productJsonLd(product, canonicalUrl)} />
+      <JsonLd value={productBreadcrumbJsonLd(product, siteConfig.url)} />
       <div className="mx-auto flex w-full max-w-wide flex-col gap-8 px-gutter pt-6 pb-section">
         <Breadcrumb
           items={[

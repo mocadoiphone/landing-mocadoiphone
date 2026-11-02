@@ -47,6 +47,8 @@ export type VariantView = {
   storage: string | null;
   colorName: string | null;
   colorHex: string | null;
+  /** Valor real à vista para dados estruturados; `null` em "consulte valores". */
+  priceCashCents: number | null;
   price: PriceView;
   availability: AvailabilityView;
   isDefault: boolean;
@@ -71,6 +73,15 @@ export type ProductDetail = ProductCard & {
     videos: MediaView[];
   };
   specs: SpecGroup[];
+  seo: {
+    title: string;
+    description: string | null;
+    canonicalUrl: string | null;
+    /** Imagem OG cadastrada; fallback para a principal quando disponível. */
+    image: MediaView | null;
+    publishedAt: string | null;
+    updatedAt: string;
+  };
   /** Relacionado do painel + mesma família, só publicados (máx. 4). */
   relatedProducts: ProductCard[];
   /** WhatsApp do produto sem variante específica. */

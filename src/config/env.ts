@@ -50,32 +50,61 @@ export function classifySupabaseKey(key: string): SupabaseKeyKind {
   return "invalid";
 }
 
-const publicEnvSchema = z.object({
-  NEXT_PUBLIC_SUPABASE_URL: z.preprocess(emptyToUndefined, z.url().optional()),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.preprocess(
-    emptyToUndefined,
-    z
-      .string()
-      .min(1)
-      .superRefine((key, ctx) => {
-        const kind = classifySupabaseKey(key);
-        if (kind === "secret") {
-          ctx.addIssue({
-            code: "custom",
-            message:
-              "contém uma chave SECRETA (service_role/sb_secret). Use somente a chave pública anon ou publishable.",
-          });
-        } else if (kind === "invalid") {
-          ctx.addIssue({
-            code: "custom",
-            message:
-              "não é uma chave pública válida. Cole somente a chave anon (JWT) ou publishable (sb_publishable_…), completa e sem texto extra.",
-          });
-        }
-      })
-      .optional(),
-  ),
-});
+const publicEnvSchema = z
+  .object({
+    NEXT_PUBLIC_SUPABASE_URL: z.preprocess(
+      emptyToUndefined,
+      z.url().optional(),
+    ),
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: z.preprocess(
+      emptyToUndefined,
+      z
+        .string()
+        .min(1)
+        .superRefine((key, ctx) => {
+          const kind = classifySupabaseKey(key);
+          if (kind === "secret") {
+            ctx.addIssue({
+              code: "custom",
+              message:
+                "contém uma chave SECRETA (service_role/sb_secret). Use somente a chave pública anon ou publishable.",
+            });
+          } else if (kind === "invalid") {
+            ctx.addIssue({
+              code: "custom",
+              message:
+                "não é uma chave pública válida. Cole somente a chave anon (JWT) ou publishable (sb_publishable_…), completa e sem texto extra.",
+            });
+          }
+        })
+        .optional(),
+    ),
+    NEXT_PUBLIC_SITE_URL: z.preprocess(
+      emptyToUndefined,
+      z
+        .url()
+        .refine((value) => new URL(value).protocol === "https:", {
+          message: "deve usar https://.",
+        })
+        .optional(),
+    ),
+    NEXT_PUBLIC_SITE_INDEXING_ENABLED: z.preprocess(
+      emptyToUndefined,
+      z.enum(["true", "false"]).optional(),
+    ),
+  })
+  .superRefine((env, ctx) => {
+    if (
+      env.NEXT_PUBLIC_SITE_INDEXING_ENABLED === "true" &&
+      !env.NEXT_PUBLIC_SITE_URL
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["NEXT_PUBLIC_SITE_URL"],
+        message: "é obrigatória quando NEXT_PUBLIC_SITE_INDEXING_ENABLED=true.",
+      });
+    }
+  });
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
 
@@ -96,6 +125,9 @@ export function parsePublicEnv(
 export const publicEnv = parsePublicEnv({
   NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+  NEXT_PUBLIC_SITE_INDEXING_ENABLED:
+    process.env.NEXT_PUBLIC_SITE_INDEXING_ENABLED,
 });
 
 export type SupabaseEnv = { url: string; anonKey: string };

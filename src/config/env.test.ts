@@ -56,6 +56,8 @@ describe("parsePublicEnv", () => {
     expect(parsePublicEnv({})).toEqual({
       NEXT_PUBLIC_SUPABASE_URL: undefined,
       NEXT_PUBLIC_SUPABASE_ANON_KEY: undefined,
+      NEXT_PUBLIC_SITE_URL: undefined,
+      NEXT_PUBLIC_SITE_INDEXING_ENABLED: undefined,
     });
   });
 
@@ -70,11 +72,29 @@ describe("parsePublicEnv", () => {
   });
 
   it("aceita valores válidos, inclusive o Supabase local", () => {
-    expect(parsePublicEnv(validEnv)).toEqual(validEnv);
+    expect(parsePublicEnv(validEnv)).toMatchObject(validEnv);
     expect(
       parsePublicEnv({ NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321" })
         .NEXT_PUBLIC_SUPABASE_URL,
     ).toBe("http://127.0.0.1:54321");
+  });
+
+  it("só libera indexação com URL HTTPS explícita", () => {
+    expect(
+      parsePublicEnv({
+        NEXT_PUBLIC_SITE_URL: "https://mocadoiphone.com/",
+        NEXT_PUBLIC_SITE_INDEXING_ENABLED: "true",
+      }),
+    ).toMatchObject({
+      NEXT_PUBLIC_SITE_URL: "https://mocadoiphone.com/",
+      NEXT_PUBLIC_SITE_INDEXING_ENABLED: "true",
+    });
+    expect(() =>
+      parsePublicEnv({ NEXT_PUBLIC_SITE_INDEXING_ENABLED: "true" }),
+    ).toThrow(/NEXT_PUBLIC_SITE_URL/);
+    expect(() =>
+      parsePublicEnv({ NEXT_PUBLIC_SITE_URL: "http:\/\/mocadoiphone.com" }),
+    ).toThrow(/https/);
   });
 
   it("rejeita URL malformada com mensagem que cita a variável", () => {

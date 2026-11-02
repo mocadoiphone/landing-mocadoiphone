@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
-import { setupMotionScene, type MotionScene } from "@/lib/motion/scenes";
 import { prefersReducedMotion } from "@/lib/motion/reduced-motion";
+import { type MotionScene } from "@/lib/motion/scenes";
 
 export function SceneController({ scene }: { scene: MotionScene }) {
   const marker = useRef<HTMLSpanElement>(null);
@@ -17,7 +17,20 @@ export function SceneController({ scene }: { scene: MotionScene }) {
         delete root.dataset.motionMode;
       };
     }
-    return setupMotionScene(scene, root);
+
+    let active = true;
+    let cleanup: (() => void) | undefined;
+    // GSAP e ScrollTrigger ficam em um chunk assíncrono e nem são baixados em
+    // reduced motion. O HTML e a navegação não dependem deste carregamento.
+    void import("@/lib/motion/scenes").then(({ setupMotionScene }) => {
+      if (!active) return;
+      cleanup = setupMotionScene(scene, root);
+    });
+
+    return () => {
+      active = false;
+      cleanup?.();
+    };
   }, [scene]);
 
   return <span ref={marker} hidden aria-hidden="true" />;

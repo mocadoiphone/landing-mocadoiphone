@@ -11,12 +11,14 @@ import {
   type ProductShowcase,
 } from "@/lib/catalog/types";
 import { isValidSlug, SLUG_MAX_LENGTH } from "@/lib/slug/slug";
+import { type SitemapSource } from "@/lib/seo/sitemap";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 
 import {
   getPublicCategoryPage,
   getPublicProduct,
   listPublicCategories,
+  listPublicSitemapEntries,
   listPublicShowcase,
 } from "./public-queries";
 import { CACHE_TAGS } from "./tags";
@@ -73,5 +75,15 @@ export async function getShowcase(
     createSupabasePublicClient(),
     requireSupabaseEnv().url,
     showcase,
+  );
+}
+
+export async function getSitemapSource(): Promise<SitemapSource> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(CACHE_TAGS.catalog);
+  return listPublicSitemapEntries(
+    createSupabasePublicClient(),
+    requireSupabaseEnv().url,
   );
 }

@@ -12,7 +12,7 @@ import { type PanelMedia, toMediaView } from "../../media/media-helpers";
 import { Button } from "../../ui/button";
 import { TextAreaField, TextField } from "../../ui/fields";
 
-/** Aba SEO (Brain §17): dados guardados agora; aplicação no site na Etapa 07. */
+/** Aba SEO (Brain §17): dados consumidos pela metadata pública da Etapa 07. */
 export function SeoForm({
   product,
   ogImage,
@@ -51,8 +51,8 @@ export function SeoForm({
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <p className="text-caption text-muted">
-        Estes dados são salvos agora e passam a ser usados no site na etapa de
-        SEO (Etapa 07).
+        Estes dados alimentam a busca e o compartilhamento social. Campos vazios
+        usam somente os fallbacks reais do produto.
       </p>
       <TextField
         label="Meta title"

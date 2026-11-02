@@ -27,6 +27,7 @@ function variant(
     storage,
     colorName,
     colorHex: "#000000",
+    priceCashCents: cents,
     price: variantPrice({
       priceCash: cents,
       priceOld: null,

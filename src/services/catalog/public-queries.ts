@@ -10,6 +10,8 @@ import {
   type ProductShowcase,
 } from "@/lib/catalog/types";
 import { RELATED_PRODUCTS_MAX } from "@/lib/catalog/related";
+import { publicMediaUrl } from "@/lib/media/media";
+import { type SitemapSource } from "@/lib/seo/sitemap";
 import { type WhatsAppConfig } from "@/lib/whatsapp/whatsapp";
 
 import {
@@ -32,7 +34,7 @@ const VARIANT_FIELDS =
 
 export const PRODUCT_CARD_SELECT = `id, slug, name, badge, short_description, is_launch, is_promotion, is_featured, category:categories(slug, name), family:product_families(id, slug, name, sort_order), variants:product_variants(${VARIANT_FIELDS}), media:product_media(slot, variant_id, alt_text, sort_order, asset:media_assets(${MEDIA_ASSET}))`;
 
-const PRODUCT_DETAIL_SELECT = `${PRODUCT_CARD_SELECT}, description, related:related_product_id(${PRODUCT_CARD_SELECT}), specs:product_specs(group_name, label, value, sort_order)`;
+const PRODUCT_DETAIL_SELECT = `${PRODUCT_CARD_SELECT}, description, meta_title, meta_description, canonical_url, published_at, updated_at, og_image:media_assets(${MEDIA_ASSET}), related:related_product_id(${PRODUCT_CARD_SELECT}), specs:product_specs(group_name, label, value, sort_order)`;
 
 const SHOWCASE_COLUMNS = {
   launch: "is_launch",
@@ -197,4 +199,46 @@ export async function listActiveCategorySlugs(
   const { data, error } = await client.from("categories").select("slug");
   if (error) fail("slugs de categoria", error);
   return data.map((row) => row.slug);
+}
+
+/** URLs públicas e datas reais usadas pelo sitemap dinâmico. */
+export async function listPublicSitemapEntries(
+  client: CatalogClient,
+  supabaseUrl: string,
+): Promise<SitemapSource> {
+  const [categories, products] = await Promise.all([
+    client.from("categories").select("slug, updated_at").order("slug"),
+    client
+      .from("products")
+      .select(
+        `slug, updated_at, media:product_media(slot, variant_id, sort_order, asset:media_assets(${MEDIA_ASSET}))`,
+      )
+      .order("slug"),
+  ]);
+  if (categories.error) fail("sitemap de categorias", categories.error);
+  if (products.error) fail("sitemap de produtos", products.error);
+
+  return {
+    categories: categories.data.map((category) => ({
+      slug: category.slug,
+      updatedAt: category.updated_at,
+    })),
+    products: products.data.map((product) => {
+      const main = product.media
+        .filter(
+          (media) =>
+            media.slot === "MAIN" &&
+            media.variant_id === null &&
+            media.asset?.kind === "IMAGE",
+        )
+        .sort((a, b) => a.sort_order - b.sort_order)[0];
+      return {
+        slug: product.slug,
+        updatedAt: product.updated_at,
+        imageUrl: main?.asset
+          ? publicMediaUrl(supabaseUrl, main.asset.storage_path)
+          : null,
+      };
+    }),
+  };
 }

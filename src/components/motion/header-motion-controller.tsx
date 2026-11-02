@@ -2,12 +2,18 @@
 
 import { useEffect, useRef } from "react";
 
+import { prefersReducedMotion } from "@/lib/motion/reduced-motion";
+
 export function HeaderMotionController() {
   const marker = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const header = marker.current?.closest<HTMLElement>("header");
     if (!header) return undefined;
+    if (prefersReducedMotion()) {
+      delete header.dataset.scrolled;
+      return undefined;
+    }
 
     let frame = 0;
     const update = () => {

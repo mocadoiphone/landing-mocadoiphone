@@ -5,7 +5,11 @@ import { Breadcrumb } from "@/components/product/breadcrumb";
 import { EmptyCatalog } from "@/components/product/empty-catalog";
 import { ProductGrid } from "@/components/product/product-grid";
 import { CategoryTiles } from "@/components/sections/category-grid-section";
-import { staticParams } from "@/lib/site/routes";
+import { JsonLd } from "@/components/seo/json-ld";
+import { siteConfig } from "@/config/site";
+import { createPageMetadata } from "@/lib/seo/metadata";
+import { categoryBreadcrumbJsonLd } from "@/lib/seo/structured-data";
+import { categoryPath, staticParams } from "@/lib/site/routes";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { listActiveCategorySlugs } from "@/services/catalog/public-queries";
 import { getCategories, getCategoryPage } from "@/services/catalog/queries";
@@ -27,10 +31,14 @@ export async function generateMetadata({
   const { categorySlug } = await params;
   const page = await getCategoryPage(categorySlug);
   if (!page) return {};
-  return {
+  return createPageMetadata({
     title: page.category.name,
-    description: page.category.description ?? undefined,
-  };
+    description: page.category.description,
+    path: categoryPath(page.category.slug),
+    siteName: siteConfig.name,
+    siteUrl: siteConfig.url,
+    image: page.category.image,
+  });
 }
 
 export default async function CategoryPage({
@@ -49,6 +57,7 @@ export default async function CategoryPage({
 
   return (
     <main>
+      <JsonLd value={categoryBreadcrumbJsonLd(page.category, siteConfig.url)} />
       <header className="mx-auto flex w-full max-w-wide flex-col gap-6 px-gutter pt-6 pb-section-tight">
         <Breadcrumb
           items={[{ label: "Início", href: "/" }, { label: category.name }]}

@@ -90,6 +90,12 @@ export type ProductCardRow = {
 
 export type ProductDetailRow = ProductCardRow & {
   description: string | null;
+  meta_title: string | null;
+  meta_description: string | null;
+  canonical_url: string | null;
+  published_at: string | null;
+  updated_at: string;
+  og_image: MediaAssetRow | null;
   related: ProductCardRow | null;
   specs: {
     group_name: string | null;
@@ -247,6 +253,7 @@ export function toProductDetail(
     storage: variant.storage,
     colorName: variant.color_name,
     colorHex: variant.color_hex,
+    priceCashCents: variant.price_on_request ? null : variant.price_cash,
     price: variantPrice(toPriceFields(variant)),
     availability: availabilityView(variant.availability),
     isDefault: variant.id === defaultVariant?.row.id,
@@ -263,8 +270,9 @@ export function toProductDetail(
     }),
   }));
 
+  const card = toProductCard(supabaseUrl, row);
   return {
-    ...toProductCard(supabaseUrl, row),
+    ...card,
     description: row.description,
     variants,
     defaultVariantId: defaultVariant?.row.id ?? null,
@@ -275,6 +283,15 @@ export function toProductDetail(
       videos: mediaBySlot(supabaseUrl, row.media, "VIDEO"),
     },
     specs: groupSpecs(row.specs),
+    seo: {
+      title: row.meta_title?.trim() || row.name,
+      description:
+        row.meta_description?.trim() || row.short_description?.trim() || null,
+      canonicalUrl: row.canonical_url,
+      image: row.og_image ? toMediaView(supabaseUrl, row.og_image) : card.image,
+      publishedAt: row.published_at,
+      updatedAt: row.updated_at,
+    },
     relatedProducts: mergeRelatedProducts(
       row.id,
       row.related ? toProductCard(supabaseUrl, row.related) : null,

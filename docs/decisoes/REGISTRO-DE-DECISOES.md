@@ -42,6 +42,8 @@
 | MDI-D034 | Páginas de produto e categoria estáticas com 404 real (corrige a D020) | Etapa 05 |
 | MDI-D035 | Coleções e blocos editoriais do produto fora da Etapa 05 (ajusta D009, D018 e D028) | Etapa 05 |
 | MDI-D036 | Motion progressivo por cenas, com conteúdo server-rendered | Etapa 06 |
+| MDI-D037 | SEO público, indexação explícita e redirects legados | Etapa 07 |
+| MDI-D038 | Produção estática com CSP compatível, banco obrigatório e motion assíncrono | Etapa 07 |
 
 ---
 
@@ -893,3 +895,44 @@ Outras regras:
 - A Etapa 06 não cria conteúdo editorial novo no banco; coleções e `product_sections` continuam adiadas conforme a MDI-D035.
 
 **Arquivos afetados:** `src/lib/motion/*`, `src/components/motion/*`, `src/components/sections/*`, `src/components/layout/site-header.tsx`, `src/components/product/product-configurator.tsx`, `src/styles/globals.css`, `tests/e2e/*`, `playwright.config.ts`, `package.json`, `package-lock.json`.
+
+---
+
+## MDI-D037
+
+**Data:** 2026-11-02
+
+**Decisão:**
+- A URL pública usa `NEXT_PUBLIC_SITE_URL`; enquanto ela não está configurada, o domínio normativo do Brain (`https://mocadoiphone.com`) serve apenas de base canônica com indexação bloqueada.
+- A indexação nunca é inferida por ambiente ou domínio. Só é liberada com `NEXT_PUBLIC_SITE_INDEXING_ENABLED=true`, que exige uma URL HTTPS explícita. Até o go-live, as páginas mantêm `noindex, nofollow` e o `robots.txt` bloqueia `/`.
+- Metadata global, de categoria e de produto usa a API nativa do Next. Produto respeita `meta_title`, `meta_description`, `canonical_url` e imagem OG do painel; campos vazios usam apenas nome, resumo e imagem principal reais. Sem imagem, a tag de imagem é omitida.
+- JSON-LD é escapado contra fechamento de `<script>` e contém somente dados disponíveis: `Organization`; `LocalBusiness` apenas quando há endereço; `BreadcrumbList`; `Product`; e `Offer` apenas para variantes com preço real. Não são gerados marca, avaliações, GTIN, estoque quantitativo ou SKU de produto.
+- O sitemap dinâmico lista Home, ofertas, lançamentos, loja, categorias ativas e produtos publicados. A RLS pública continua sendo o filtro de publicação.
+- Os endereços antigos documentados na MDI-D003 usam 301: `/macbook` → `/mac`, `/applewatch` → `/apple-watch` e `/apple-vision-pro` → `/vision-pro`. Mudanças futuras de slug publicado entram no mapa versionado de redirects até a Etapa 08 definir o inventário/mecanismo definitivo.
+- Não há favicon, ícone social global nem manifest nesta etapa: nenhum ativo oficial autorizado foi encontrado e o site não precisa de comportamento instalável.
+
+**Motivo:** O Brain §26 exige uma URL canônica única, metadata social, sitemap, robots e dados estruturados sem conteúdo inventado. O pedido da Etapa 07 também exige que preparar o go-live não libere indexação por acidente e que as URLs legadas já conhecidas sejam preservadas.
+
+**Impacto:** O site fica rastreável e compartilhável, mas continua fora do índice até a decisão explícita de go-live. Produtos em rascunho ou despublicados não aparecem no sitemap nem geram páginas públicas. A Etapa 08 precisa completar o inventário de URLs do Wix e de slugs históricos.
+
+**Arquivos afetados:** `src/app/layout.tsx`, `src/app/(site)/**`, `src/app/robots.ts`, `src/app/sitemap.ts`, `src/lib/seo/**`, `src/components/seo/**`, `src/config/{env,site,redirects}.ts`, `src/services/catalog/**`, `.env.example`, `next.config.ts`.
+
+---
+
+## MDI-D038
+
+**Data:** 2026-11-02
+
+**Decisão:**
+- A dependência do Supabase durante o build é mantida e continua falhando de forma explícita. Não haverá fallback silencioso que publique catálogo, metadata ou sitemap incompletos. A Etapa 10 pode rever disponibilidade e cache distribuído com dados do ambiente de produção.
+- O modelo de cache da MDI-D020 permanece: `use cache`, `cacheLife("hours")` e tags. O sitemap usa a tag `catalog`; produtos continuam em `catalog` + `settings`; Home continua em `home` + `catalog` + `settings`. Actions seguem invalidando as tags existentes.
+- O otimizador de imagens do Next é mantido para o lançamento: origem limitada ao bucket `media`, dimensões persistidas, `sizes`, lazy loading e preload somente para a provável imagem LCP. O uso/custo da Vercel deve ser medido em produção antes de considerar o transformador do Supabase.
+- GSAP e ScrollTrigger ficam em chunk assíncrono carregado pelo controlador de cena. Com reduced motion, esse import não ocorre; o cabeçalho também deixa de reagir ao scroll. A Home continua Server Component e todas as cenas mantêm cleanup.
+- A CSP é estática para preservar geração estática, Cache Components e PPR. Ela limita origens ao próprio site e ao Supabase configurado, inclui `frame-ancestors 'none'`, `object-src 'none'`, `base-uri` e `form-action`; mantém `unsafe-inline` para scripts/estilos exigidos pelo runtime estático e pelo JSON-LD. Nonce por requisição não é adotado porque tornaria as páginas dinâmicas. HSTS só aparece em build de produção com `NEXT_PUBLIC_SITE_URL` HTTPS explícita.
+- Nenhum analytics, pixel ou script de rastreamento foi instalado.
+
+**Motivo:** O Brain §27 exige desempenho sem sacrificar o storytelling. O guia local do Next 16.4.3 registra que CSP com nonce desativa a geração estática/PPR; a política estática é o equilíbrio compatível com o catálogo atual. Falhar o build diante do banco indisponível evita um deploy tecnicamente bem-sucedido, mas comercialmente vazio.
+
+**Impacto:** O JavaScript pesado de motion deixa o carregamento inicial e não é baixado em reduced motion. A segurança de headers melhora sem alterar a arquitetura de renderização. Persistem riscos operacionais que só dados reais da Vercel podem quantificar: custo do Image Optimization, Core Web Vitals e disponibilidade do Supabase durante deploys.
+
+**Arquivos afetados:** `next.config.ts`, `src/config/security.ts`, `src/components/motion/**`, `src/lib/motion/**`, `src/services/catalog/queries.ts`, `src/app/sitemap.ts`.

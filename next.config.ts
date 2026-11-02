@@ -3,17 +3,16 @@ import type { NextConfig } from "next";
 // Valida as variáveis de ambiente ao iniciar `next dev` / `next build` (falha cedo se inválidas).
 import { publicEnv } from "./src/config/env";
 import { supabaseImageConfig } from "./src/config/images";
+import { legacyRedirects } from "./src/config/redirects";
+import { createSecurityHeaders } from "./src/config/security";
 
-// Cabeçalhos de segurança básicos. A CSP completa fica para a Etapa 09 (Segurança e QA).
-const securityHeaders = [
-  { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "X-Frame-Options", value: "DENY" },
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  {
-    key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), browsing-topics=()",
-  },
-];
+const securityHeaders = createSecurityHeaders({
+  supabaseUrl: publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+  productionHttps:
+    process.env.NODE_ENV === "production" &&
+    Boolean(publicEnv.NEXT_PUBLIC_SITE_URL?.startsWith("https://")),
+  development: process.env.NODE_ENV === "development",
+});
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -34,6 +33,9 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
+  },
+  async redirects() {
+    return [...legacyRedirects];
   },
 };
 
