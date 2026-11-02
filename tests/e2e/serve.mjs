@@ -22,7 +22,11 @@ const env = {
 };
 const port = process.env.E2E_PORT ?? "3100";
 
-execSync("npx next build", { env, stdio: ["ignore", "ignore", "inherit"] });
+// A flag serve apenas para reaproveitar um build local já validado durante
+// diagnósticos. O comando padrão continua sempre gerando o próprio build.
+if (process.env.E2E_SKIP_BUILD !== "1") {
+  execSync("npx next build", { env, stdio: ["ignore", "ignore", "inherit"] });
+}
 
 const server = spawn("npx", ["next", "start", "-p", port], {
   env,

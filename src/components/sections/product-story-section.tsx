@@ -1,4 +1,5 @@
 import { SiteImage } from "@/components/media/site-image";
+import { SceneController } from "@/components/motion/scene-controller";
 import { Eyebrow } from "@/components/ui/section";
 import { type HomeBlockView } from "@/lib/home/types";
 
@@ -24,11 +25,16 @@ export function ProductStorySection({
   return (
     <section
       data-theme={block.theme}
+      data-motion-scene="story"
       aria-labelledby={id}
       className="py-section"
     >
-      <div className="mx-auto grid w-full max-w-wide items-center gap-10 px-gutter lg:grid-cols-12 lg:gap-16">
+      <div
+        data-motion-story-stage
+        className="mx-auto grid w-full max-w-wide items-center gap-10 px-gutter lg:min-h-[calc(100svh-var(--spacing-header))] lg:grid-cols-12 lg:gap-16"
+      >
         <div
+          data-motion-story-media
           className={`relative flex aspect-square items-center justify-center rounded-media bg-surface p-6 sm:aspect-[4/3] lg:col-span-7 lg:aspect-square ${mediaEnd ? "lg:order-last" : ""}`}
         >
           {block.media ? (
@@ -41,7 +47,10 @@ export function ProductStorySection({
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-6 lg:col-span-5">
+        <div
+          data-motion-story-copy
+          className="flex flex-col gap-6 lg:col-span-5"
+        >
           {block.eyebrow ? <Eyebrow>{block.eyebrow}</Eyebrow> : null}
           <h2 id={id} className="text-display-md font-semibold text-balance">
             {block.title ?? product.name}
@@ -56,6 +65,7 @@ export function ProductStorySection({
               {block.items.map((item) => (
                 <div
                   key={`${item.title}-${item.text}`}
+                  data-motion-story-item
                   className="flex flex-col gap-1"
                 >
                   <dt className="text-heading font-semibold">{item.title}</dt>
@@ -71,6 +81,7 @@ export function ProductStorySection({
           <BlockCtas ctas={block.ctas} />
         </div>
       </div>
+      <SceneController scene="story" />
     </section>
   );
 }

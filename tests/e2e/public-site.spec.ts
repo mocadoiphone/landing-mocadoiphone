@@ -24,6 +24,10 @@ test("Home monta os blocos do painel com temas claro e escuro", async ({
   await expect(
     page.getByRole("heading", { level: 2, name: "Lançamentos de teste" }),
   ).toBeVisible();
+  await expect(page.locator('[data-motion-scene="hero"]')).toHaveAttribute(
+    "data-motion-mode",
+    "enhanced",
+  );
   await expect(
     page.getByRole("link", { name: /Produto com variantes/ }).first(),
   ).toBeVisible();
@@ -52,6 +56,38 @@ test("Home monta os blocos do painel com temas claro e escuro", async ({
   await expect(header.getByRole("link", { name: "Lançamentos" })).toBeVisible();
   await expect(
     page.getByRole("contentinfo").getByText(/Todos os direitos reservados/),
+  ).toBeVisible();
+});
+
+test("header reage ao scroll sem desaparecer", async ({ page }) => {
+  await page.goto("/");
+  const header = page.getByRole("banner");
+  await expect(header).toBeVisible();
+  await expect(header).not.toHaveAttribute("data-scrolled", "true");
+
+  await page.evaluate(() => window.scrollTo(0, 900));
+  await expect(header).toHaveAttribute("data-scrolled", "true");
+  await expect(
+    header.getByRole("link", { name: "Moça do iPhone" }),
+  ).toBeVisible();
+});
+
+test("movimento reduzido remove scrub, parallax e pinning", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Hero de teste" }),
+  ).toBeVisible();
+  await expect(page.locator('[data-motion-scene="hero"]')).toHaveAttribute(
+    "data-motion-mode",
+    "reduced",
+  );
+  await expect(page.locator(".pin-spacer")).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: /Falar no WhatsApp/ }).first(),
   ).toBeVisible();
 });
 

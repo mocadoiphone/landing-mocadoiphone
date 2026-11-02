@@ -134,6 +134,36 @@ describe("HomeBlocks", () => {
     expect(within(region).getByText("Consulte valores")).toBeDefined();
   });
 
+  it("storytelling preserva produto, texto e destaques no HTML", () => {
+    const { container } = render(
+      <HomeBlocks
+        blocks={[
+          block({
+            id: "story",
+            type: "PRODUCT_STORY",
+            title: "Produto em foco",
+            content: "Texto vindo do painel.",
+            product: PRODUCT,
+            media: MEDIA,
+            items: [
+              { title: "Destaque um", text: "Detalhe", detail: null },
+              { title: "Destaque dois", text: null, detail: null },
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Produto em foco" }),
+    ).toBeDefined();
+    expect(screen.getByText("Texto vindo do painel.")).toBeDefined();
+    expect(screen.getByText("Destaque um")).toBeDefined();
+    expect(
+      container.querySelector('[data-motion-scene="story"]'),
+    ).not.toBeNull();
+  });
+
   it("benefícios, depoimentos e loja física usam conteúdo do painel", () => {
     render(
       <HomeBlocks

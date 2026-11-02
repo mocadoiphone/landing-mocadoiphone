@@ -1,4 +1,5 @@
 import { SiteImage, SiteVideo } from "@/components/media/site-image";
+import { SceneController } from "@/components/motion/scene-controller";
 import { Eyebrow, SectionHeading } from "@/components/ui/section";
 import { type HomeBlockView } from "@/lib/home/types";
 
@@ -21,12 +22,16 @@ export function FullscreenMediaSection({
   return (
     <section
       data-theme={block.theme}
+      data-motion-scene="media"
       aria-labelledby={id}
       aria-label={id ? undefined : (block.media?.alt ?? block.video?.alt)}
       className="flex flex-col gap-10 py-section"
     >
       {hasText || block.ctas.length > 0 ? (
-        <div className="mx-auto flex w-full max-w-wide flex-col gap-6 px-gutter">
+        <div
+          data-motion-entry
+          className="mx-auto flex w-full max-w-wide flex-col gap-6 px-gutter"
+        >
           <SectionHeading
             id={id}
             eyebrow={block.eyebrow}
@@ -37,13 +42,18 @@ export function FullscreenMediaSection({
         </div>
       ) : null}
       {block.video ? (
-        <SiteVideo
-          video={block.video}
-          poster={block.media}
-          className="aspect-[4/5] w-full bg-surface object-cover md:aspect-video"
-        />
+        <div data-motion-parallax className="w-full overflow-hidden">
+          <SiteVideo
+            video={block.video}
+            poster={block.media}
+            className="aspect-[4/5] w-full bg-surface object-cover md:aspect-video"
+          />
+        </div>
       ) : block.media ? (
-        <div className="relative aspect-[4/5] w-full overflow-hidden bg-surface md:aspect-video">
+        <div
+          data-motion-parallax
+          className="relative aspect-[4/5] w-full overflow-hidden bg-surface md:aspect-video"
+        >
           <SiteImage
             media={block.media}
             sizes="100vw"
@@ -53,6 +63,7 @@ export function FullscreenMediaSection({
           />
         </div>
       ) : null}
+      <SceneController scene="media" />
     </section>
   );
 }
@@ -64,12 +75,13 @@ export function TextAndMediaSection({ block }: { block: HomeBlockView }) {
   return (
     <section
       data-theme={block.theme}
+      data-motion-scene="text-media"
       aria-labelledby={id}
       className="py-section"
     >
       <div className="mx-auto grid w-full max-w-wide items-center gap-10 px-gutter md:grid-cols-2 lg:gap-16">
         {block.media ? (
-          <div className={mediaEnd ? "md:order-last" : ""}>
+          <div data-motion-parallax className={mediaEnd ? "md:order-last" : ""}>
             <SiteImage
               media={block.media}
               sizes="(min-width: 768px) 50vw, 100vw"
@@ -77,7 +89,7 @@ export function TextAndMediaSection({ block }: { block: HomeBlockView }) {
             />
           </div>
         ) : null}
-        <div className="flex flex-col gap-6">
+        <div data-motion-text className="flex flex-col gap-6">
           {block.eyebrow ? <Eyebrow>{block.eyebrow}</Eyebrow> : null}
           <h2 id={id} className="text-display-md font-semibold text-balance">
             {block.title}
@@ -86,6 +98,7 @@ export function TextAndMediaSection({ block }: { block: HomeBlockView }) {
           <BlockCtas ctas={block.ctas} />
         </div>
       </div>
+      <SceneController scene="text-media" />
     </section>
   );
 }

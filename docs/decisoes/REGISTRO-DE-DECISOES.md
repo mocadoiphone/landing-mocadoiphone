@@ -41,6 +41,7 @@
 | MDI-D033 | Base visual neutra premium (identidade oficial pendente) | Etapa 05 |
 | MDI-D034 | Páginas de produto e categoria estáticas com 404 real (corrige a D020) | Etapa 05 |
 | MDI-D035 | Coleções e blocos editoriais do produto fora da Etapa 05 (ajusta D009, D018 e D028) | Etapa 05 |
+| MDI-D036 | Motion progressivo por cenas, com conteúdo server-rendered | Etapa 06 |
 
 ---
 
@@ -865,3 +866,30 @@ Outras regras:
 - As duas tabelas entram, com migration e pgTAP, quando uma etapa precisar delas (provavelmente a Etapa 06, com o storytelling por produto).
 
 **Arquivos afetados:** nenhum (decisão de escopo).
+
+---
+
+## MDI-D036
+
+**Data:** 2026-11-02
+
+**Decisão:**
+- O motion do site público é uma melhoria progressiva sobre o HTML server-rendered. Os componentes de conteúdo continuam Server Components; controladores client-side pequenos encontram apenas a cena em que estão montados.
+- A camada reutilizável fica em `src/lib/motion/`:
+  - GSAP + ScrollTrigger para Hero, storytelling de produto, mídia em tela cheia, texto com mídia e entrada da página de produto;
+  - `IntersectionObserver` + CSS para grades de produtos e categorias;
+  - controlador próprio, sem GSAP, para a reação do cabeçalho ao scroll.
+- `PRODUCT_STORY` usa pinning e scrub somente a partir de 1024 px. Abaixo disso permanece no fluxo e recebe uma entrada curta. Hero e parallax deixam de usar scrub abaixo dos breakpoints definidos para cada cena.
+- Com `prefers-reduced-motion: reduce`, nenhum runtime de cena é iniciado: não há pinning, scrub ou parallax, e todo conteúdo aparece imediatamente.
+- Nenhuma informação depende do movimento. Sem JavaScript, títulos, mídia, preços, destaques e CTAs continuam no HTML e utilizáveis.
+- O conteúdo continua vindo dos 11 tipos existentes de `homepage_sections`. Não há tabela, campo nem migration nova nesta etapa.
+- `assets-21/macbook.txt` não é usado: o histórico do repositório não comprova autoria ou licença. `modelo-tela.jpg` também não é incorporado.
+
+**Motivo:** O Brain §27–§33 exige uma camada centralizada, produto legível, mobile próprio, movimento reduzido e baixo custo de JavaScript. A separação preserva a MDI-D011 (Server Components e Client Components apenas para interação/motion) e evita transformar a Home inteira em Client Component.
+
+**Impacto:**
+- GSAP é dependência de produção, mas fica restrito às cenas narrativas.
+- Toda cena faz cleanup de timelines, media queries, observers, listeners e ScrollTriggers ao desmontar.
+- A Etapa 06 não cria conteúdo editorial novo no banco; coleções e `product_sections` continuam adiadas conforme a MDI-D035.
+
+**Arquivos afetados:** `src/lib/motion/*`, `src/components/motion/*`, `src/components/sections/*`, `src/components/layout/site-header.tsx`, `src/components/product/product-configurator.tsx`, `src/styles/globals.css`, `tests/e2e/*`, `playwright.config.ts`, `package.json`, `package-lock.json`.

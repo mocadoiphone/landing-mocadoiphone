@@ -28,6 +28,90 @@
   html {
     scroll-behavior: smooth;
   }
+
+  .site-header,
+  .site-header__inner {
+    transition:
+      background-color 240ms var(--ease-premium),
+      border-color 240ms var(--ease-premium),
+      box-shadow 240ms var(--ease-premium),
+      transform 240ms var(--ease-premium);
+  }
+
+  .motion-variant-media {
+    animation: product-media-change 420ms var(--ease-premium) both;
+  }
+}
+
+.site-header[data-scrolled="true"] {
+  background-color: color-mix(in oklab, var(--background) 94%, transparent);
+  box-shadow: var(--shadow-elevated);
+}
+
+.site-header[data-scrolled="true"] .site-header__inner {
+  transform: scale(0.985);
+}
+
+/* Reveal progressivo: o HTML nasce visivel e so e ocultado depois que o
+ * controlador existe. Assim, sem JavaScript, nenhum conteudo desaparece. */
+[data-motion-item] {
+  transition:
+    opacity 620ms var(--ease-premium),
+    transform 620ms var(--ease-premium);
+}
+
+[data-motion-state="pending"] [data-motion-item],
+[data-motion-group][data-motion-state="pending"] > [data-motion-item] {
+  transform: translateY(1.25rem);
+  opacity: 0;
+}
+
+[data-motion-state="visible"] [data-motion-item],
+[data-motion-group][data-motion-state="visible"] > [data-motion-item] {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+[data-motion-group] > [data-motion-item]:nth-child(2) {
+  transition-delay: 55ms;
+}
+
+[data-motion-group] > [data-motion-item]:nth-child(3) {
+  transition-delay: 110ms;
+}
+
+[data-motion-group] > [data-motion-item]:nth-child(4) {
+  transition-delay: 165ms;
+}
+
+[data-motion-group] > [data-motion-item]:nth-child(5) {
+  transition-delay: 220ms;
+}
+
+[data-motion-group] > [data-motion-item]:nth-child(6) {
+  transition-delay: 275ms;
+}
+
+[data-motion-group] > [data-motion-item]:nth-child(n + 7) {
+  transition-delay: 330ms;
+}
+
+[data-motion-mode]:not([data-motion-mode="reduced"]) [data-motion-hero-media],
+[data-motion-mode]:not([data-motion-mode="reduced"]) [data-motion-story-media],
+[data-motion-mode]:not([data-motion-mode="reduced"]) [data-motion-parallax] {
+  will-change: transform;
+}
+
+@keyframes product-media-change {
+  from {
+    transform: translateY(0.75rem) scale(0.985);
+    opacity: 0.45;
+  }
+
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
 }
 
 /* No celular, a barra fixa de compra (página de produto) não cobre o fim do rodapé. */
@@ -46,5 +130,12 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  [data-motion-item],
+  .motion-variant-media,
+  .site-header__inner {
+    transform: none !important;
+    opacity: 1 !important;
   }
 }

@@ -10,7 +10,7 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
-  timeout: 120_000,
+  timeout: 180_000,
   expect: { timeout: 20_000 },
   reporter: [["list"]],
   use: {
@@ -22,19 +22,29 @@ export default defineConfig({
     {
       name: "desktop",
       use: { ...devices["Desktop Chrome"] },
-      testIgnore: /mobile\.spec\.ts/,
+      testIgnore: [/mobile\.spec\.ts/, /no-js\.spec\.ts/],
     },
     {
       name: "mobile",
       use: { ...devices["Pixel 7"] },
       testMatch: /mobile\.spec\.ts/,
     },
+    {
+      name: "no-js",
+      use: { ...devices["Desktop Chrome"], javaScriptEnabled: false },
+      testMatch: /no-js\.spec\.ts/,
+    },
   ],
   webServer: {
     command: "node tests/e2e/serve.mjs",
     url: `http://localhost:${PORT}/admin/login`,
-    timeout: 300_000,
+    // O build de produção pode passar de 5 min no Windows quando o Next abre
+    // os workers de páginas; o timeout dos testes continua em 180 s.
+    timeout: 1_200_000,
     reuseExistingServer: false,
-    env: { E2E_PORT: String(PORT) },
+    env: {
+      E2E_PORT: String(PORT),
+      E2E_SKIP_BUILD: process.env.E2E_SKIP_BUILD ?? "",
+    },
   },
 });

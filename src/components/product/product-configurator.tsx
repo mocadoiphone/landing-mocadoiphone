@@ -6,6 +6,7 @@ import { useId, useState } from "react";
 
 import { AvailabilityBadge } from "@/components/catalog/availability-badge";
 import { PriceBlock } from "@/components/catalog/price-block";
+import { SceneController } from "@/components/motion/scene-controller";
 import { ctaClasses } from "@/components/ui/cta-link";
 import { type AvailabilityView } from "@/lib/availability/availability";
 import { type MediaView, type VariantView } from "@/lib/catalog/types";
@@ -101,16 +102,25 @@ export function ProductConfigurator({
   ) : null;
 
   return (
-    <>
+    <div data-motion-scene="product" className="contents">
       <div className="grid gap-10 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-16">
-        <ProductGallery
-          images={images}
-          mobileMain={variantImages.length > 0 ? null : product.media.mobile}
-          videos={product.media.videos}
-          productName={product.name}
-        />
+        <div
+          key={selected?.id ?? "produto"}
+          data-motion-product-gallery
+          className="motion-variant-media"
+        >
+          <ProductGallery
+            images={images}
+            mobileMain={variantImages.length > 0 ? null : product.media.mobile}
+            videos={product.media.videos}
+            productName={product.name}
+          />
+        </div>
 
-        <div className="flex flex-col gap-8 md:sticky md:top-[calc(var(--spacing-header)+2rem)] md:self-start">
+        <div
+          data-motion-product-panel
+          className="flex flex-col gap-8 md:sticky md:top-[calc(var(--spacing-header)+2rem)] md:self-start"
+        >
           <div className="flex flex-col gap-3">
             <p className="text-eyebrow font-semibold tracking-wide text-muted uppercase">
               {product.familyName}
@@ -263,6 +273,7 @@ export function ProductConfigurator({
           </div>
         </div>
       ) : null}
-    </>
+      <SceneController scene="product" />
+    </div>
   );
 }

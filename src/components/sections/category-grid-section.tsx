@@ -2,6 +2,7 @@ import { type Route } from "next";
 import Link from "next/link";
 
 import { SiteImage } from "@/components/media/site-image";
+import { RevealController } from "@/components/motion/reveal-controller";
 import { SectionHeading } from "@/components/ui/section";
 import { type CategorySummary } from "@/lib/catalog/types";
 import { type HomeBlockView } from "@/lib/home/types";
@@ -16,35 +17,42 @@ export function CategoryTiles({
   currentSlug?: string;
 }) {
   return (
-    <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
-      {categories.map((category) => (
-        <li key={category.id}>
-          <Link
-            href={categoryPath(category.slug) as Route}
-            aria-current={category.slug === currentSlug ? "page" : undefined}
-            className="group flex h-full flex-col items-center gap-3 rounded-card bg-surface p-4 text-center transition-shadow duration-300 ease-premium hover:shadow-elevated focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:p-6"
-          >
-            <span className="relative flex aspect-square w-full items-center justify-center">
-              {category.image ? (
-                <SiteImage
-                  media={category.image}
-                  sizes="(min-width: 768px) 22vw, 45vw"
-                  className="h-full w-full object-contain transition-transform duration-500 ease-premium group-hover:scale-[1.04]"
-                />
-              ) : (
-                <span
-                  aria-hidden="true"
-                  className="text-display-md font-semibold text-muted"
-                >
-                  {category.name.charAt(0)}
-                </span>
-              )}
-            </span>
-            <span className="text-body font-semibold">{category.name}</span>
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul
+        data-motion-reveal
+        data-motion-group
+        className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4"
+      >
+        {categories.map((category) => (
+          <li key={category.id} data-motion-item>
+            <Link
+              href={categoryPath(category.slug) as Route}
+              aria-current={category.slug === currentSlug ? "page" : undefined}
+              className="group flex h-full flex-col items-center gap-3 rounded-card bg-surface p-4 text-center transition-shadow duration-300 ease-premium hover:shadow-elevated focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:p-6"
+            >
+              <span className="relative flex aspect-square w-full items-center justify-center">
+                {category.image ? (
+                  <SiteImage
+                    media={category.image}
+                    sizes="(min-width: 768px) 22vw, 45vw"
+                    className="h-full w-full object-contain transition-transform duration-500 ease-premium group-hover:scale-[1.04]"
+                  />
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className="text-display-md font-semibold text-muted"
+                  >
+                    {category.name.charAt(0)}
+                  </span>
+                )}
+              </span>
+              <span className="text-body font-semibold">{category.name}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <RevealController target="previous" />
+    </>
   );
 }
 

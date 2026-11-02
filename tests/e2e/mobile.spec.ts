@@ -31,6 +31,7 @@ test("no celular, o site abre o menu, navega e mantém o WhatsApp à mão", asyn
     () => document.documentElement.scrollWidth - window.innerWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
+  await expect(page.locator(".pin-spacer")).toHaveCount(0);
 
   // Navegação completa fica no menu (dialog modal com foco preso).
   await expect(

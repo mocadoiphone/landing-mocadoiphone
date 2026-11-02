@@ -1,6 +1,7 @@
 import { type Route } from "next";
 import Link from "next/link";
 
+import { HeaderMotionController } from "@/components/motion/header-motion-controller";
 import { categoryPath, SITE_ROUTES } from "@/lib/site/routes";
 import { type SiteChrome } from "@/lib/site/types";
 
@@ -36,14 +37,14 @@ export function SiteHeader({ chrome }: { chrome: SiteChrome }) {
     : { href: SITE_ROUTES.store, label: "Visite a loja", external: false };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
+    <header className="site-header sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
       <a
         href="#conteudo"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-control focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-foreground"
       >
         Pular para o conteúdo
       </a>
-      <div className="mx-auto flex h-header w-full max-w-wide items-center justify-between gap-6 px-gutter">
+      <div className="site-header__inner mx-auto flex h-header w-full max-w-wide items-center justify-between gap-6 px-gutter">
         <Link
           href="/"
           className="shrink-0 rounded-control text-lead font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-ring"
@@ -92,6 +93,7 @@ export function SiteHeader({ chrome }: { chrome: SiteChrome }) {
           />
         </div>
       </div>
+      <HeaderMotionController />
     </header>
   );
 }

@@ -1,4 +1,5 @@
 import { ProductTile } from "@/components/product/product-tile";
+import { RevealController } from "@/components/motion/reveal-controller";
 import { SectionHeading } from "@/components/ui/section";
 import { type ProductCard } from "@/lib/catalog/types";
 import { type HomeBlockView } from "@/lib/home/types";
@@ -18,23 +19,31 @@ export function ProductRail({
   label: string;
 }) {
   return (
-    <div
-      role="region"
-      aria-label={`Lista de produtos: ${label}`}
-      tabIndex={0}
-      className="-mx-gutter [scrollbar-width:thin] overflow-x-auto px-gutter pb-2 focus-visible:outline-2 focus-visible:outline-ring md:mx-0 md:overflow-visible md:px-0"
-    >
-      <ul className="flex snap-x snap-mandatory gap-4 md:grid md:snap-none md:grid-cols-3 md:gap-6 lg:grid-cols-4">
-        {products.map((product) => (
-          <li
-            key={product.id}
-            className="w-[78%] shrink-0 snap-start sm:w-[45%] md:w-auto"
-          >
-            <ProductTile product={product} />
-          </li>
-        ))}
-      </ul>
-    </div>
+    <>
+      <div
+        role="region"
+        aria-label={`Lista de produtos: ${label}`}
+        tabIndex={0}
+        className="-mx-gutter [scrollbar-width:thin] overflow-x-auto px-gutter pb-2 focus-visible:outline-2 focus-visible:outline-ring md:mx-0 md:overflow-visible md:px-0"
+      >
+        <ul
+          data-motion-reveal
+          data-motion-group
+          className="flex snap-x snap-mandatory gap-4 md:grid md:snap-none md:grid-cols-3 md:gap-6 lg:grid-cols-4"
+        >
+          {products.map((product) => (
+            <li
+              key={product.id}
+              data-motion-item
+              className="w-[78%] shrink-0 snap-start sm:w-[45%] md:w-auto"
+            >
+              <ProductTile product={product} />
+            </li>
+          ))}
+        </ul>
+      </div>
+      <RevealController target="previous" />
+    </>
   );
 }
 
